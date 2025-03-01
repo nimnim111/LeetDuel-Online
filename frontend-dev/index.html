@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LeetDuel Dev</title>
+    <input type="text" id="username" placeholder="Username" />
+    <input type="text" id="party-id" placeholder="Party-id" />
+    <button id="create-party">Create Party</button>
+    <button id="join-party">Join Party</button>
+
+    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+      const socket = io("http://localhost:8000");
+
+      function emitCreateParty(username) {
+        socket.emit("create_party", { username });
+
+        socket.on("party_created", (data) => {
+          console.log("Party created with code:", data.party_code);
+          // Show party code to the user
+        });
+      }
+
+      function joinParty(username, partyCode) {
+        socket.emit("join_party", { username, party_code: partyCode });
+
+        socket.on("player_joined", (data) => {
+          console.log(`${data.username} joined the party!`);
+        });
+
+        socket.on("error", (data) => {
+          console.error(data.message);
+        });
+      }
+
+      function startGame(partyCode) {
+        socket.emit("start_game", { party_code: partyCode });
+
+        socket.on("game_started", (data) => {
+          console.log("Game started! Problem:", data.problem.title);
+        });
+      }
+
+      let createPartyBtn = document.getElementById("create-party");
+      let joinPartyBtn = document.getElementById("join-party");
+      let usernameInput = document.getElementById("username");
+      let partyIdInput = document.getElementById("party-id");
+
+      createPartyBtn.addEventListener("click", () => {
+        emitCreateParty(usernameInput.value);
+      });
+
+      joinPartyBtn.addEventListener("click", () => {
+        joinParty(usernameInput.value, partyIdInput.value);
+      });
+    </script>
+  </head>
+  <body></body>
+</html>
