@@ -13,10 +13,11 @@ with open("problems.json", "r") as f:
     problems = json.load(f)
 
 class Problem:
-    def __init__(self, language_id, problem_id):
+    def __init__(self, language_id, problem, api_key):
         self.language_id = language_id
-        self.problem = problems[problem_id]
+        self.problem = problem
         self.stdinput = ""
+        self.api_key = api_key
 
 
     def add_test_cases(self):
@@ -39,7 +40,7 @@ for result in results:
         url = "https://judge0-ce.p.rapidapi.com/submissions/?base64_encoded=false&wait=false"
         headers = {
             "content-type": "application/json",
-            "x-rapidapi-key": judge0_api_key,
+            "x-rapidapi-key": self.api_key,
             "x-rapidapi-host": "judge0-ce.p.rapidapi.com",
         }
         data = {
@@ -107,15 +108,15 @@ for result in results:
     
 
 
-code = """
-def run(nums, target):
-    d = {}
-    for i, num in enumerate(nums):
-        if target - num in d:
-            return [d[target - num], i]
-        d[num] = i
-    return []
-"""
+# code = """
+# def run(nums, target):
+#     d = {}
+#     for i, num in enumerate(nums):
+#         if target - num in d:
+#             return [d[target - num], i]
+#         d[num] = i
+#     return []
+# """
 
-problem = Problem(language_id, "Two Sum")
-print(problem.submit_code(code))
+# problem = Problem(language_id, "Two Sum")
+# print(problem.submit_code(code))

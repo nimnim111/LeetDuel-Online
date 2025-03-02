@@ -4,7 +4,15 @@ import string
 from fastapi import FastAPI
 import uvicorn
 from fastapi.responses import JSONResponse
+import json
+import os
+from dotenv import load_dotenv
+from submit import Problem
 
+
+load_dotenv(dotenv_path="../.env.local")
+judge0_api_key = os.getenv("JUDGE0_API_KEY")
+language_id = 100
 
 app = FastAPI()
 sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*")
@@ -13,6 +21,8 @@ socket_app = socketio.ASGIApp(sio, app)
 # Stores active parties
 parties = {}
 
+with open("problems.json", "r") as f:
+    problems = json.load(f)
 
 def generate_party_code():
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
@@ -60,13 +70,25 @@ async def start_game(sid, data):
     party_code = data["party_code"]
 
     if party_code in parties and parties[party_code]["host"] == sid:
-        problem = {"title": "Two Sum", "description": "Find two numbers that add up to a target."}
+        problem = problems[random.choice(list(problems.keys()))]
         parties[party_code]["problem"] = problem
         parties[party_code]["status"] = "in_progress"
 
-        await sio.emit("game_started", {"problem": problem}, room=party_code)
+        await sio.emit("game_started", {"problem": problem, "party_code": party_code}, room=party_code)
     else:
         await sio.emit("error", {"message": "You are not the host"}, to=sid)
+
+@sio.event
+async def submit_code(sid, data):
+    # Log successful receive
+    print(f"submit_code event received from {sid}: {data}")
+    """ Player submits code to be judged """
+    party_code = data["party_code"]
+    code = data["code"]
+    problem_obj = parties[party_code]["problem"]
+    problem = Problem(language_id, problem_obj, judge0_api_key)
+    response = problem.submit_code(code)
+    await sio.emit("code_submitted", {"response": response["status"]}, room=party_code)
 
 
 @app.get("/")

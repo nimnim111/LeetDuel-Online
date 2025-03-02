@@ -2,13 +2,15 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import socket from "../socket";
+import { useGame } from "../context/GameContext";
 
 export default function Home() {
   const router = useRouter();
+  const { setProblem } = useGame();
   const [username, setUsername] = useState("");
-  const [partyCode, setPartyCode] = useState("");
   const [message, setMessage] = useState("");
   const [joined, setJoined] = useState(false);
+  const [partyCode, setPartyCode] = useState("");
 
   useEffect(() => {
     socket.on("party_created", (data) => {
@@ -25,7 +27,8 @@ export default function Home() {
     socket.on("game_started", (data) => {
       console.log(data);
       setMessage(`Game started! Problem: ${data.problem.title}`);
-      router.push("/game");
+      setProblem(data.problem);
+      router.push(`/game?party=${encodeURIComponent(data.party_code)}`);
     });
     socket.on("error", (data) => {
       setMessage(`Error: ${data.message}`);
@@ -36,7 +39,7 @@ export default function Home() {
       socket.off("game_started");
       socket.off("error");
     };
-  }, [router]);
+  }, [router, setProblem, setPartyCode]);
 
   const createParty = () => {
     if (username) socket.emit("create_party", { username });
