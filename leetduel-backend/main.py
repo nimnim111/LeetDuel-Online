@@ -31,7 +31,8 @@ async def create_party(sid, data):
         "status": "waiting",
     }
     print(party_code)
-    await sio.emit("party_created", {"party_code": party_code}, to=sid)
+    await sio.emit("party_created", {"username": data["username"], "party_code": party_code}, to=sid)
+    await sio.enter_room(sid, party_code)
 
 
 @sio.event

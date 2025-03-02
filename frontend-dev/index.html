@@ -9,12 +9,10 @@
     <button id="create-party">Create Party</button>
     <button id="join-party">Join Party</button>
 
-    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-    <script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js">
       const socket = io("http://localhost:8000");
 
-      function emitCreateParty(username) {
+      function createParty(username) {
         socket.emit("create_party", { username });
 
         socket.on("party_created", (data) => {
@@ -27,11 +25,11 @@
         socket.emit("join_party", { username, party_code: partyCode });
 
         socket.on("player_joined", (data) => {
-          console.log(`${data.username} joined the party!`);
+            console.log(`${data.username} joined the party!`);
         });
 
         socket.on("error", (data) => {
-          console.error(data.message);
+            console.error(data.message);
         });
       }
 
@@ -43,17 +41,17 @@
         });
       }
 
-      let createPartyBtn = document.getElementById("create-party");
-      let joinPartyBtn = document.getElementById("join-party");
-      let usernameInput = document.getElementById("username");
-      let partyIdInput = document.getElementById("party-id");
+      let createParty = document.getElementById('create-party');
+      let joinParty = document.getElementById('join-party');
+      let username = document.getElementById('username');
+      let partyId = document.getElementById('party-id');
 
-      createPartyBtn.addEventListener("click", () => {
-        emitCreateParty(usernameInput.value);
+      createParty.addEventListener('click', () => {
+        createParty(username.value);
       });
 
-      joinPartyBtn.addEventListener("click", () => {
-        joinParty(usernameInput.value, partyIdInput.value);
+      joinParty.addEventListener('click', () => {
+        joinParty(username.value, partyId.value);
       });
     </script>
   </head>
