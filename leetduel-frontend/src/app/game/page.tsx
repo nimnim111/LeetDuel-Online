@@ -11,6 +11,10 @@ const starterCode = `def run():
 export default function GamePage() {
   const [code, setCode] = useState(starterCode);
   const [consoleOutput, setConsoleOutput] = useState("Console output...");
+  const [chatMessages, setChatMessages] = useState<string[]>([
+    "Welcome to the chat!",
+  ]);
+  const [chatInput, setChatInput] = useState("");
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const lineNumbersRef = useRef<HTMLDivElement>(null);
   const { problem, username } = useGame();
@@ -25,6 +29,7 @@ export default function GamePage() {
     socket.on("code_submitted", (data) => {
       setConsoleOutput(data.message);
     });
+    // For chat, you could add socket listeners (not implemented here)
     return () => {
       socket.off("code_submitted");
     };
@@ -51,7 +56,6 @@ export default function GamePage() {
     }
   };
 
-  // Simulate running code
   const runCode = () => {
     console.log(party);
     console.log(problem.title);
@@ -64,9 +68,17 @@ export default function GamePage() {
     });
   };
 
+  // Chat send handler (frontend only)
+  const sendMessage = () => {
+    if (chatInput.trim()) {
+      setChatMessages([...chatMessages, `${username || "Me"}: ${chatInput}`]);
+      setChatInput("");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 p-6 text-gray-900 dark:text-gray-100">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl mx-auto" style={{ marginRight: "16.6667%" }}>
         <h1 className="text-4xl font-bold mb-6 text-center">
           LeetDuel Game {party}
         </h1>
@@ -78,7 +90,7 @@ export default function GamePage() {
           <p className="text-xl text-center mb-6">Loading problem...</p>
         )}
         <div className="flex flex-col md:flex-row gap-6">
-          {/* Updated Problem Description Container with Run Code button */}
+          {/* Problem Description Column */}
           <div className="relative md:w-1/2 bg-white dark:bg-gray-800 shadow rounded-lg p-6">
             <h2 className="text-2xl font-semibold mb-4">Problem Description</h2>
             <p className="text-md">
@@ -94,9 +106,8 @@ export default function GamePage() {
               Run Code
             </button>
           </div>
-          {/* Code Editor and Console */}
+          {/* Code Editor & Console Column */}
           <div className="md:w-1/2 flex flex-col">
-            {/* Code Editor with line numbers */}
             <div className="relative flex">
               <div
                 ref={lineNumbersRef}
@@ -123,9 +134,40 @@ export default function GamePage() {
                 rows={15}
               />
             </div>
-            {/* Removed previous Run Code button from here */}
             <div className="mt-4 bg-black text-green-400 font-mono p-4 rounded-lg h-40 overflow-auto">
               {consoleOutput}
+            </div>
+          </div>
+          {/* Chat Column removed from main flex container */}
+        </div>
+        {/* Fixed Chat Sidebar */}
+        <div className="fixed top-0 right-0 h-screen w-1/6">
+          <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 h-full flex flex-col">
+            <h2 className="text-xl font-bold mb-4">Live Chat</h2>
+            <div className="flex-1 overflow-y-auto mb-4 space-y-2">
+              {chatMessages.map((msg, idx) => (
+                <div
+                  key={idx}
+                  className="text-sm text-gray-700 dark:text-gray-300"
+                >
+                  {msg}
+                </div>
+              ))}
+            </div>
+            <div className="flex">
+              <input
+                type="text"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                placeholder="Type your message..."
+                className="flex-1 px-3 py-2 rounded-l-lg border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button
+                onClick={sendMessage}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 rounded-r-lg transition"
+              >
+                Send
+              </button>
             </div>
           </div>
         </div>
