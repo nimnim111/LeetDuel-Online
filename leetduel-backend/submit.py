@@ -69,10 +69,10 @@ for result in results:
         
         response_data = response.json()
 
-        if "error" in response_data:
-            return response_data["error"]
-        
         print(response_data)
+
+        if "stderr" in response_data and response_data["stderr"]:
+            return response_data["stderr"]
         
         return self.check_test_cases(response_data["stdout"])
         
@@ -80,10 +80,11 @@ for result in results:
     def check_test_cases(self, data):
         test_cases = self.problem["tests"]
         if not data:
-            return {"status": "Failed", "test_case": 0}
+            return "No output"
         data = data.split("\n")[:-1]
+        print(test_cases, data)
         count = 0
-        r = {"status": "Accepted", "Total test cases": len(test_cases)}
+        r = {"status": "Accepted", "total test cases": len(test_cases)}
 
         for i in range(len(data)):
             if data[i] != test_cases[i]["output"]:
@@ -95,7 +96,8 @@ for result in results:
 
             count += 1
         
-        r["Passed test cases"] = count
+        r["passed test cases"] = count
+        print(r["status"])
         return r
     
     

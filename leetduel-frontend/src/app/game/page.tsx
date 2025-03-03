@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import socket from "../../socket";
 
 const starterCode = `def run():
-    // your code here
+    # your code here
     return`;
 
 export default function GamePage() {
@@ -13,7 +13,7 @@ export default function GamePage() {
   const [consoleOutput, setConsoleOutput] = useState("Console output...");
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const lineNumbersRef = useRef<HTMLDivElement>(null);
-  const { problem } = useGame();
+  const { problem, username } = useGame();
   const router = useRouter();
   const searchParams = useSearchParams();
   const party = searchParams.get("party") || "Unknown";
@@ -23,7 +23,7 @@ export default function GamePage() {
       router.push("/");
     }
     socket.on("code_submitted", (data) => {
-      setConsoleOutput(data.response);
+      setConsoleOutput(data.message);
     });
     return () => {
       socket.off("code_submitted");
@@ -55,8 +55,13 @@ export default function GamePage() {
   const runCode = () => {
     console.log(party);
     console.log(problem.title);
+    console.log(username);
     setConsoleOutput("Running code...");
-    socket.emit("submit_code", { code: code, party_code: party });
+    socket.emit("submit_code", {
+      code: code,
+      party_code: party,
+      username: username,
+    });
   };
 
   return (
@@ -66,7 +71,9 @@ export default function GamePage() {
           LeetDuel Game {party}
         </h1>
         {problem ? (
-          <p className="text-xl text-center mb-6">Problem: {problem.title}</p>
+          <p className="text-xl text-center mb-6">
+            Problem: {problem.title} {username && `| User: ${username}`}
+          </p>
         ) : (
           <p className="text-xl text-center mb-6">Loading problem...</p>
         )}

@@ -6,14 +6,29 @@ type Problem = { title: string; description: string } | null;
 type GameContextType = {
   problem: Problem;
   setProblem: (problem: Problem) => void;
+  partyCode: string;
+  setPartyCode: (code: string) => void;
+  username: string;
+  setUsername: (username: string) => void;
 };
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
 export function GameProvider({ children }: { children: ReactNode }) {
   const [problem, setProblem] = useState<Problem>(null);
+  const [partyCode, setPartyCode] = useState("");
+  const [username, setUsername] = useState("");
   return (
-    <GameContext.Provider value={{ problem, setProblem }}>
+    <GameContext.Provider
+      value={{
+        problem,
+        setProblem,
+        partyCode,
+        setPartyCode,
+        username,
+        setUsername,
+      }}
+    >
       {children}
     </GameContext.Provider>
   );

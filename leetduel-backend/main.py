@@ -87,8 +87,15 @@ async def submit_code(sid, data):
     code = data["code"]
     problem_obj = parties[party_code]["problem"]
     problem = Problem(language_id, problem_obj, judge0_api_key)
-    response = problem.submit_code(code)
-    await sio.emit("code_submitted", {"response": response["status"]}, room=party_code)
+
+    r = problem.submit_code(code)
+    message_to_client = r["status"] + ", " + str(r["passed test cases"]) + "/" + str(r["total test cases"]) + " test cases passed."
+    message_to_room = data["username"] + " passed " + str(r["passed test cases"]) + "/" + str(r["total test cases"]) + " test cases."
+
+    print("message " + message_to_client)
+
+    await sio.emit("code_submitted", {"message": message_to_client}, to=sid)
+    await sio.emit("player_submit", {"message": message_to_room}, room=party_code)
 
 
 @app.get("/")

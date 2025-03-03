@@ -6,28 +6,32 @@ import { useGame } from "../context/GameContext";
 
 export default function Home() {
   const router = useRouter();
-  const { setProblem } = useGame();
-  const [username, setUsername] = useState("");
+  const { setProblem, setPartyCode, setUsername } = useGame();
+  const [username, localSetUsername] = useState("");
   const [message, setMessage] = useState("");
   const [joined, setJoined] = useState(false);
-  const [partyCode, setPartyCode] = useState("");
+  const [localPartyCode, setLocalPartyCode] = useState("");
 
   useEffect(() => {
     socket.on("party_created", (data) => {
       setMessage(
         `Party created with code: ${data.party_code}\nMembers:\n${data.username}`
       );
+      setLocalPartyCode(data.party_code);
       setPartyCode(data.party_code);
       setJoined(true);
+      setUsername(username);
     });
     socket.on("player_joined", (data) => {
       setMessage(`${message + "\n" + username}`);
       setJoined(true);
+      setUsername(username);
     });
     socket.on("game_started", (data) => {
       console.log(data);
       setMessage(`Game started! Problem: ${data.problem.title}`);
       setProblem(data.problem);
+      setPartyCode(data.party_code);
       router.push(`/game?party=${encodeURIComponent(data.party_code)}`);
     });
     socket.on("error", (data) => {
@@ -39,19 +43,24 @@ export default function Home() {
       socket.off("game_started");
       socket.off("error");
     };
-  }, [router, setProblem, setPartyCode]);
+  }, [router, setProblem, setPartyCode, setUsername, username, message]);
 
   const createParty = () => {
-    if (username) socket.emit("create_party", { username });
+    if (username) {
+      socket.emit("create_party", { username });
+    }
   };
 
   const joinParty = () => {
-    if (username && partyCode)
-      socket.emit("join_party", { username, party_code: partyCode });
+    if (username && localPartyCode) {
+      socket.emit("join_party", { username, party_code: localPartyCode });
+    }
   };
 
   const startGame = () => {
-    if (partyCode) socket.emit("start_game", { party_code: partyCode });
+    if (localPartyCode) {
+      socket.emit("start_game", { party_code: localPartyCode });
+    }
   };
 
   return (
@@ -65,20 +74,19 @@ export default function Home() {
             type="text"
             placeholder="Username"
             value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            onChange={(e) => localSetUsername(e.target.value)}
             disabled={joined}
             className="w-full px-4 py-3 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
           />
           <input
             type="text"
             placeholder="Party Code"
-            value={partyCode}
-            onChange={(e) => setPartyCode(e.target.value)}
+            value={localPartyCode}
+            onChange={(e) => setLocalPartyCode(e.target.value)}
             disabled={joined}
             className="w-full px-4 py-3 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
           />
         </div>
-        {/* Show join/create buttons before joining */}
         {!joined && (
           <div className="flex flex-col space-y-3 mb-6">
             <button
@@ -95,7 +103,6 @@ export default function Home() {
             </button>
           </div>
         )}
-        {/* Show start game button after joining, with a slide-in animation */}
         {joined && (
           <div className="transition-all duration-500 transform translate-y-0 opacity-100 mb-6">
             <button
