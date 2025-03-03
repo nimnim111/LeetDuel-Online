@@ -55,7 +55,13 @@ export default function GamePage() {
     }
   };
 
-  const handleTab = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const brackets: Record<string, string> = {
+    "{": "}",
+    "(": ")",
+    "[": "]",
+  };
+
+  const handleKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Tab") {
       e.preventDefault();
       const start = e.currentTarget.selectionStart;
@@ -64,6 +70,18 @@ export default function GamePage() {
       setTimeout(() => {
         e.currentTarget.selectionStart = e.currentTarget.selectionEnd =
           start + 4;
+      });
+    }
+    if (["{", "(", "["].includes(e.key)) {
+      e.preventDefault();
+      const start = e.currentTarget.selectionStart;
+      const end = e.currentTarget.selectionEnd;
+      setCode(
+        code.substring(0, start) + e.key + brackets[e.key] + code.substring(end)
+      );
+      setTimeout(() => {
+        e.currentTarget.selectionStart = e.currentTarget.selectionEnd =
+          start + 1;
       });
     }
   };
@@ -145,7 +163,7 @@ export default function GamePage() {
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
                 onScroll={handleScroll}
-                onKeyDown={handleTab}
+                onKeyDown={handleKey}
                 className="flex-1 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 font-mono p-4 rounded-r-lg border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                 rows={15}
               />
