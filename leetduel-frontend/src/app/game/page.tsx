@@ -29,9 +29,21 @@ export default function GamePage() {
     socket.on("code_submitted", (data) => {
       setConsoleOutput(data.message);
     });
-    // For chat, you could add socket listeners (not implemented here)
+
+    socket.on("message_received", (data) => {
+      setChatMessages((prevMessages) => [
+        ...prevMessages,
+        `${data.username}: ${data.message}`,
+      ]);
+    });
+
+    socket.on("player_submit", (data) => {
+      setChatMessages((prevMessages) => [...prevMessages, data.message]);
+    });
     return () => {
       socket.off("code_submitted");
+      socket.off("message_received");
+      socket.off("player_submit");
     };
   }, [problem, router]);
 
@@ -71,7 +83,11 @@ export default function GamePage() {
   // Chat send handler (frontend only)
   const sendMessage = () => {
     if (chatInput.trim()) {
-      setChatMessages([...chatMessages, `${username || "Me"}: ${chatInput}`]);
+      socket.emit("chat_message", {
+        message: chatInput,
+        party_code: party,
+        username: username,
+      });
       setChatInput("");
     }
   };
@@ -159,6 +175,11 @@ export default function GamePage() {
                 type="text"
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    sendMessage();
+                  }
+                }}
                 placeholder="Type your message..."
                 className="flex-1 px-3 py-2 rounded-l-lg border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />

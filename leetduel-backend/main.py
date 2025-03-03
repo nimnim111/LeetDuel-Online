@@ -97,6 +97,17 @@ async def submit_code(sid, data):
     await sio.emit("code_submitted", {"message": message_to_client}, to=sid)
     await sio.emit("player_submit", {"message": message_to_room}, room=party_code)
 
+@sio.event
+async def chat_message(sid, data):
+    # Log successful receive
+    print(f"chat_message event received from {sid}: {data}")
+    """ Player sends a chat message """
+    party_code = data["party_code"]
+    message = data["message"]
+    username = data["username"]
+
+    await sio.emit("message_received", {"username": username, "message": message}, room=party_code)
+
 
 @app.get("/")
 async def read_root():
