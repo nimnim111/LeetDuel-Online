@@ -98,7 +98,6 @@ export default function GamePage() {
     });
   };
 
-  // Chat send handler (frontend only)
   const sendMessage = () => {
     if (chatInput.trim()) {
       socket.emit("chat_message", {
@@ -124,7 +123,6 @@ export default function GamePage() {
           <p className="text-xl text-center mb-6">Loading problem...</p>
         )}
         <div className="flex flex-col md:flex-row gap-6">
-          {/* Problem Description Column */}
           <div className="relative md:w-1/2 bg-white dark:bg-gray-800 shadow rounded-lg p-6">
             <h2 className="text-2xl font-semibold mb-4">Problem Description</h2>
             <p className="text-md">
@@ -140,7 +138,6 @@ export default function GamePage() {
               Run Code
             </button>
           </div>
-          {/* Code Editor & Console Column */}
           <div className="md:w-1/2 flex flex-col">
             <div className="relative flex">
               <div
@@ -172,9 +169,7 @@ export default function GamePage() {
               {consoleOutput}
             </div>
           </div>
-          {/* Chat Column removed from main flex container */}
         </div>
-        {/* Fixed Chat Sidebar */}
         <div className="fixed top-0 right-0 h-screen w-1/6">
           <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 h-full flex flex-col">
             <h2 className="text-xl font-bold mb-4">Live Chat</h2>

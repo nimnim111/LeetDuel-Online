@@ -107,18 +107,3 @@ for result in results:
 
     def get_problem_description(self):
         return self.problem["description"]
-    
-
-
-# code = """
-# def run(nums, target):
-#     d = {}
-#     for i, num in enumerate(nums):
-#         if target - num in d:
-#             return [d[target - num], i]
-#         d[num] = i
-#     return []
-# """
-
-# problem = Problem(language_id, "Two Sum")
-# print(problem.submit_code(code))
