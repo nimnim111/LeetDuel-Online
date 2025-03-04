@@ -1,16 +1,31 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import socket from "../socket";
 import { useGame } from "../context/GameContext";
 
 export default function Home() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { setProblem, setPartyCode, setUsername } = useGame();
   const [username, localSetUsername] = useState("");
   const [message, setMessage] = useState("");
   const [joined, setJoined] = useState(false);
   const [localPartyCode, setLocalPartyCode] = useState("");
+
+  // Check for party in query parameters so that joined remains true
+  useEffect(() => {
+    const qpParty = searchParams.get("party");
+    const qpUsername = searchParams.get("username");
+    if (qpParty) {
+      setLocalPartyCode(qpParty);
+      setPartyCode(qpParty);
+      setJoined(true);
+      if (qpUsername) {
+        localSetUsername(qpUsername);
+      }
+    }
+  }, [searchParams, setPartyCode]);
 
   useEffect(() => {
     socket.on("party_created", (data) => {

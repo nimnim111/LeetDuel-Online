@@ -40,10 +40,21 @@ export default function GamePage() {
     socket.on("player_submit", (data) => {
       setChatMessages((prevMessages) => [...prevMessages, data.message]);
     });
+
+    socket.on("game_over", (data) => {
+      // Redirect to Home and pass both party and username as query parameters
+      router.push(
+        `/?party=${encodeURIComponent(party)}&username=${encodeURIComponent(
+          username
+        )}`
+      );
+    });
+
     return () => {
       socket.off("code_submitted");
       socket.off("message_received");
       socket.off("player_submit");
+      socket.off("game_over");
     };
   }, [problem, router]);
 

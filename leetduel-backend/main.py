@@ -8,7 +8,7 @@ import json
 import os
 from dotenv import load_dotenv
 from submit import Problem
-
+import asyncio
 
 load_dotenv(dotenv_path="../.env.local")
 judge0_api_key = os.getenv("JUDGE0_API_KEY")
@@ -26,6 +26,22 @@ with open("problems.json", "r") as f:
 def generate_party_code():
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
 
+def all_players_passed(party_code):
+    for player in parties[party_code]["players"]:
+        if not player["passed"]:
+            return False
+    return True
+
+def reset_players_passed(party_code):
+    for player in parties[party_code]["players"]:
+        player["passed"] = False
+
+async def game_timeout(party_code):
+    await asyncio.sleep(900)
+    if parties[party_code]["status"] == "in_progress":
+        parties[party_code]["status"] = "finished"
+        reset_players_passed(party_code)
+        await sio.emit("game_over", {"message": "Time is up!"}, room=party_code)
 
 @sio.event
 async def create_party(sid, data):
@@ -33,7 +49,7 @@ async def create_party(sid, data):
     party_code = generate_party_code()
     parties[party_code] = {
         "host": sid,
-        "players": [{"sid": sid, "username": data["username"]}],
+        "players": [{"sid": sid, "username": data["username"], "passed": False}],
         "problem": None,
         "status": "waiting",
     }
@@ -68,6 +84,8 @@ async def start_game(sid, data):
         parties[party_code]["status"] = "in_progress"
 
         await sio.emit("game_started", {"problem": problem, "party_code": party_code}, room=party_code)
+        # Start the game timeout task
+        asyncio.create_task(game_timeout(party_code))
     else:
         await sio.emit("error", {"message": "You are not the host"}, to=sid)
 
@@ -85,8 +103,19 @@ async def submit_code(sid, data):
 
     print("message " + message_to_client)
 
+    if r["status"] == "Accepted":
+        for player in parties[party_code]["players"]:
+            if player["sid"] == sid:
+                player["passed"] = True
+
     await sio.emit("code_submitted", {"message": message_to_client}, to=sid)
     await sio.emit("player_submit", {"message": message_to_room}, room=party_code)
+
+    if all_players_passed(party_code):
+        print("All players passed!")
+        parties[party_code]["status"] = "finished"
+        reset_players_passed(party_code)
+        await sio.emit("game_over", {"message": "All players passed! Game over."}, room=party_code)
 
 @sio.event
 async def chat_message(sid, data):
