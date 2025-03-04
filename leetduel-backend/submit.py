@@ -1,16 +1,12 @@
-from dotenv import load_dotenv
-import os
 import requests
 import json
 import sys
 import time
 
-load_dotenv(dotenv_path="../.env.local")
-judge0_api_key = os.getenv("JUDGE0_API_KEY")
-language_id = 100
 
 with open("problems.json", "r") as f:
     problems = json.load(f)
+    
 
 class Problem:
     def __init__(self, language_id, problem, api_key):

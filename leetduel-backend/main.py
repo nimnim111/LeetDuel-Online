@@ -5,13 +5,10 @@ from fastapi import FastAPI
 import uvicorn
 from fastapi.responses import JSONResponse
 import json
-import os
-from dotenv import load_dotenv
+from config import judge0_api_key
 from submit import Problem
 import asyncio
 
-load_dotenv(dotenv_path="../.env.local")
-judge0_api_key = os.getenv("JUDGE0_API_KEY")
 language_id = 100
 
 app = FastAPI()

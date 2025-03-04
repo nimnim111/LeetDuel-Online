@@ -99,7 +99,6 @@ export default function GamePage() {
 
   const runCode = () => {
     console.log(party);
-    console.log(problem.title);
     console.log(username);
     setConsoleOutput("Running code...");
     socket.emit("submit_code", {
