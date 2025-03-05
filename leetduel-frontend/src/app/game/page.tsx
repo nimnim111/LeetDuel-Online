@@ -12,10 +12,8 @@ const firaCode = Fira_Code({
 });
 
 export default function GamePage() {
-  const [consoleOutput, setConsoleOutput] = useState("Console output...");
-  const [chatMessages, setChatMessages] = useState<string[]>([
-    "Welcome to the chat!",
-  ]);
+  const [consoleOutput, setConsoleOutput] = useState("Console output");
+  const [chatMessages, setChatMessages] = useState<string[]>(["Game started!"]);
   const [chatInput, setChatInput] = useState("");
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const lineNumbersRef = useRef<HTMLDivElement>(null);

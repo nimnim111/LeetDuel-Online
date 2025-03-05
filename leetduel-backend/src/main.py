@@ -4,7 +4,6 @@ import string
 from fastapi import FastAPI
 import uvicorn
 from fastapi.responses import JSONResponse
-from .config import judge0_api_key
 from .submit import Problem
 import asyncio
 from .database import SessionLocal
@@ -111,7 +110,7 @@ async def submit_code(sid, data):
     party_code = data["party_code"]
     code = data["code"]
     problem_obj = parties[party_code]["problem"]
-    problem = Problem(language_id, problem_obj, judge0_api_key)
+    problem = Problem(language_id, problem_obj)
 
     r = problem.submit_code(code)
 
