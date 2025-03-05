@@ -1,11 +1,17 @@
 "use client";
 import React, { createContext, useContext, useState, ReactNode } from "react";
 
+type TestCase = {
+  input: string;
+  output: string;
+};
+
 type Problem = {
   name: string;
   description: string;
   function_signature: string;
   difficulty: string;
+  test_cases: TestCase[];
 } | null;
 
 type GameContextType = {

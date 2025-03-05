@@ -18,7 +18,7 @@ class Problem:
 
     def add_test_cases(self):
         test_cases = self.problem["test_cases"]
-        self.stdinput = json.dumps([test_case["input"] for test_case in test_cases])
+        self.stdinput = json.dumps([json.loads(test_case["input"]) for test_case in test_cases])
         return self.stdinput
 
 
@@ -54,33 +54,40 @@ for result in results:
         response_data = response.json()
         print(response_data)
         token = response_data["token"]
+        description = "Processing"
 
-        time.sleep(3)
+        while description == "Processing":
 
-        url = f"https://judge0-ce.p.rapidapi.com/submissions/{token}?base64_encoded=false"
-        response = requests.get(url, headers=headers)
+            time.sleep(2)
 
-        if response.status_code != 200:
-            return response
-        
-        response_data = response.json()
+            url = f"https://judge0-ce.p.rapidapi.com/submissions/{token}?base64_encoded=false"
+            response = requests.get(url, headers=headers)
+
+            if response.status_code != 200:
+                return {"message": "Internal error occurred", "status": "Failed"}
+            
+            response_data = response.json()
+            description = response_data["status"]["description"]
 
         print(response_data)
 
         if "stderr" in response_data and response_data["stderr"]:
-            return response_data["stderr"]
+            return {"message": response_data["stderr"], "status": "Failed"}
         
-        return self.check_test_cases(response_data["stdout"])
+        if "message" in response_data and response_data["message"] == "Time limit exceeded":
+            return {"message": response_data["message"] + " (" + response_data["time"] + "s).", "status": "Failed"}
+        
+        return self.check_test_cases(response_data["stdout"], response_data["time"])
         
 
-    def check_test_cases(self, data):
+    def check_test_cases(self, data, time):
         test_cases = self.problem["test_cases"]
         if not data:
             return "No output"
         data = data.split("\n")[:-1]
         print(test_cases, data)
         count = 0
-        r = {"status": "Accepted", "total test cases": len(test_cases)}
+        r = {"status": "Accepted", "total test cases": len(test_cases), "time": time}
 
         for i in range(len(data)):
             if data[i] != test_cases[i]["output"]:

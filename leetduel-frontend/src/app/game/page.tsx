@@ -104,13 +104,18 @@ export default function GamePage() {
       e.preventDefault();
       const start = e.currentTarget.selectionStart;
       const end = e.currentTarget.selectionEnd;
-      setCode(
-        code.substring(0, start) + e.key + brackets[e.key] + code.substring(end)
-      );
+      const newCode =
+        code.substring(0, start) +
+        e.key +
+        brackets[e.key] +
+        code.substring(end);
+      setCode(newCode);
       setTimeout(() => {
-        e.currentTarget.selectionStart = e.currentTarget.selectionEnd =
-          start + 1;
-      });
+        if (editorRef.current) {
+          editorRef.current.focus();
+          editorRef.current.setSelectionRange(start + 1, start + 1);
+        }
+      }, 0);
     }
   };
 
@@ -153,9 +158,21 @@ export default function GamePage() {
             <p className="text-md">
               {problem ? problem.description : "Loading problem description..."}
             </p>
-            <p className="mt-4 text-sm text-gray-500">
-              Hint: Use a hash map to track the needed complement.
-            </p>
+            {problem &&
+              problem.test_cases &&
+              problem.test_cases.slice(0, 3).map((testCase, idx) => (
+                <div key={idx} className="mt-4 p-2 border rounded">
+                  <p className="font-semibold">Test Case {idx + 1}</p>
+                  <p>
+                    <span className="font-semibold">Input:</span>{" "}
+                    {testCase.input}
+                  </p>
+                  <p>
+                    <span className="font-semibold">Output:</span>{" "}
+                    {testCase.output}
+                  </p>
+                </div>
+              ))}
             <button
               onClick={runCode}
               className="absolute bottom-4 right-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition"

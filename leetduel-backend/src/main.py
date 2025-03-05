@@ -114,8 +114,14 @@ async def submit_code(sid, data):
     problem = Problem(language_id, problem_obj, judge0_api_key)
 
     r = problem.submit_code(code)
-    message_to_client = r["status"] + ", " + str(r["passed test cases"]) + "/" + str(r["total test cases"]) + " test cases passed."
-    message_to_room = data["username"] + " passed " + str(r["passed test cases"]) + "/" + str(r["total test cases"]) + " test cases."
+
+    if "message" in r:
+        message_to_client = r["status"] + ", " + r["message"]
+        message_to_room = data["username"] + " encountered an error."
+
+    else:
+        message_to_client = r["status"] + ", " + str(r["passed test cases"]) + "/" + str(r["total test cases"]) + " test cases in " + str(r["time"]) + " seconds."
+        message_to_room = data["username"] + " passed " + str(r["passed test cases"]) + "/" + str(r["total test cases"]) + " test cases in " + str(r["time"]) + " seconds."
 
     print("message " + message_to_client)
 
