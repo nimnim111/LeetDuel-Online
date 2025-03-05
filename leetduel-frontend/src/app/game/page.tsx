@@ -3,13 +3,15 @@ import { useState, useRef, useEffect } from "react";
 import { useGame } from "../../context/GameContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import socket from "../../socket";
+import { Fira_Code } from "next/font/google";
 
-const starterCode = `def run():
-    # your code here
-    return`;
+const firaCode = Fira_Code({
+  weight: "400",
+  subsets: ["latin"],
+  display: "swap",
+});
 
 export default function GamePage() {
-  const [code, setCode] = useState(starterCode);
   const [consoleOutput, setConsoleOutput] = useState("Console output...");
   const [chatMessages, setChatMessages] = useState<string[]>([
     "Welcome to the chat!",
@@ -21,6 +23,16 @@ export default function GamePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const party = searchParams.get("party") || "Unknown";
+
+  const starterCode = problem
+    ? problem.function_signature +
+      `:` +
+      `
+    # your code here
+    return`
+    : ``;
+
+  const [code, setCode] = useState(starterCode);
 
   useEffect(() => {
     if (!problem) {
@@ -41,7 +53,11 @@ export default function GamePage() {
       setChatMessages((prevMessages) => [...prevMessages, data.message]);
     });
 
-    socket.on("game_over", (data) => {
+    socket.on("game_over_message", (data) => {
+      setChatMessages((prevMessages) => [...prevMessages, data.message]);
+    });
+
+    socket.on("game_over", () => {
       // Redirect to Home and pass both party and username as query parameters
       router.push(
         `/?party=${encodeURIComponent(party)}&username=${encodeURIComponent(
@@ -54,6 +70,7 @@ export default function GamePage() {
       socket.off("code_submitted");
       socket.off("message_received");
       socket.off("player_submit");
+      socket.off("game_over_message");
       socket.off("game_over");
     };
   }, [problem, router]);
@@ -122,12 +139,10 @@ export default function GamePage() {
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 p-6 text-gray-900 dark:text-gray-100">
       <div className="max-w-7xl mx-auto" style={{ marginRight: "16.6667%" }}>
-        <h1 className="text-4xl font-bold mb-6 text-center">
-          LeetDuel Game {party}
-        </h1>
+        <h1 className="text-4xl font-bold mb-6 text-center">LeetDuel</h1>
         {problem ? (
           <p className="text-xl text-center mb-6">
-            Problem: {problem.title} {username && `| User: ${username}`}
+            Problem: {problem.name} | Difficulty: {problem.difficulty}
           </p>
         ) : (
           <p className="text-xl text-center mb-6">Loading problem...</p>
@@ -152,13 +167,12 @@ export default function GamePage() {
             <div className="relative flex">
               <div
                 ref={lineNumbersRef}
-                className="select-none bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 text-right pr-2 rounded-l-lg border border-r-0 border-gray-400 dark:border-gray-500 overflow-hidden"
+                className={`${firaCode.className} select-none bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 text-right pr-2 rounded-l-lg border border-r-0 border-gray-400 dark:border-gray-500 overflow-hidden`}
                 style={{
                   minWidth: "3rem",
                   paddingTop: "1rem",
                   paddingBottom: "0.75rem",
                   lineHeight: "1.5rem",
-                  fontFamily: "monospace",
                 }}
               >
                 {lines.map((_, idx) => (
@@ -171,7 +185,7 @@ export default function GamePage() {
                 onChange={(e) => setCode(e.target.value)}
                 onScroll={handleScroll}
                 onKeyDown={handleKey}
-                className="flex-1 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 font-mono p-4 rounded-r-lg border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                className={`${firaCode.className} flex-1 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 p-4 rounded-r-lg border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none`}
                 rows={15}
               />
             </div>
@@ -187,7 +201,7 @@ export default function GamePage() {
               {chatMessages.map((msg, idx) => (
                 <div
                   key={idx}
-                  className="text-sm text-gray-700 dark:text-gray-300"
+                  className="text-sm text-gray-700 dark:text-gray-300 font-mono"
                 >
                   {msg}
                 </div>
@@ -204,7 +218,7 @@ export default function GamePage() {
                   }
                 }}
                 placeholder="Type your message..."
-                className="flex-1 px-3 py-2 rounded-l-lg border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 px-3 py-2 rounded-l-lg border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
               />
               <button
                 onClick={sendMessage}

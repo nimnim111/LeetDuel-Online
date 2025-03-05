@@ -1,7 +1,12 @@
 "use client";
 import React, { createContext, useContext, useState, ReactNode } from "react";
 
-type Problem = { title: string; description: string } | null;
+type Problem = {
+  name: string;
+  description: string;
+  function_signature: string;
+  difficulty: string;
+} | null;
 
 type GameContextType = {
   problem: Problem;

@@ -4,21 +4,38 @@ import string
 from fastapi import FastAPI
 import uvicorn
 from fastapi.responses import JSONResponse
-import json
-from config import judge0_api_key
-from submit import Problem
+from .config import judge0_api_key
+from .submit import Problem
 import asyncio
+from .database import SessionLocal
+from .crud import get_problem, get_count
+
+from src.routes.problems import router as problems_router  # Added import
 
 language_id = 100
 
 app = FastAPI()
+app.include_router(problems_router)  # Mount problems endpoints
+
 sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*")
 socket_app = socketio.ASGIApp(sio, app)
 
 parties = {}
 
-with open("problems.json", "r") as f:
-    problems = json.load(f)
+
+def get_random_problem(problem_id=None):
+    db = SessionLocal()
+
+    if not problem_id:
+        problem_id = random.randint(1, get_count(db))
+    try:
+        print(problem_id)
+        problem = get_problem(db, problem_id)
+        print(problem)
+        return {"name": problem.problem_name, "description": problem.problem_description, "difficulty": problem.problem_difficulty, "test_cases": problem.test_cases, "function_signature": problem.function_signature}
+    finally:
+        db.close()
+
 
 def generate_party_code():
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
@@ -38,7 +55,9 @@ async def game_timeout(party_code):
     if parties[party_code]["status"] == "in_progress":
         parties[party_code]["status"] = "finished"
         reset_players_passed(party_code)
-        await sio.emit("game_over", {"message": "Time is up!"}, room=party_code)
+        await sio.emit("game_over_message", {"message": "Time is up!"}, room=party_code)
+        await asyncio.sleep(3)
+        await sio.emit("game_over", room=party_code)
 
 @sio.event
 async def create_party(sid, data):
@@ -76,7 +95,7 @@ async def start_game(sid, data):
     party_code = data["party_code"]
 
     if party_code in parties and parties[party_code]["host"] == sid:
-        problem = problems[random.choice(list(problems.keys()))]
+        problem = get_random_problem()
         parties[party_code]["problem"] = problem
         parties[party_code]["status"] = "in_progress"
 
@@ -112,7 +131,9 @@ async def submit_code(sid, data):
         print("All players passed!")
         parties[party_code]["status"] = "finished"
         reset_players_passed(party_code)
-        await sio.emit("game_over", {"message": "All players passed! Game over."}, room=party_code)
+        await sio.emit("game_over_message", {"message": "All players passed! Game over."}, room=party_code)
+        await asyncio.sleep(3)
+        await sio.emit("game_over", room=party_code)
 
 @sio.event
 async def chat_message(sid, data):
@@ -134,4 +155,5 @@ async def read_root():
 
 
 if __name__ == "__main__":
-    uvicorn.run(socket_app, host="0.0.0.0", port=8000)
+    # Change the run command to use the module path (src.main:socket_app)
+    uvicorn.run("src.main:socket_app", host="0.0.0.0", port=8000)

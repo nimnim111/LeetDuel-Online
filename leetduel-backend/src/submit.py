@@ -17,7 +17,7 @@ class Problem:
 
 
     def add_test_cases(self):
-        test_cases = self.problem["tests"]
+        test_cases = self.problem["test_cases"]
         self.stdinput = json.dumps([test_case["input"] for test_case in test_cases])
         return self.stdinput
 
@@ -74,7 +74,7 @@ for result in results:
         
 
     def check_test_cases(self, data):
-        test_cases = self.problem["tests"]
+        test_cases = self.problem["test_cases"]
         if not data:
             return "No output"
         data = data.split("\n")[:-1]

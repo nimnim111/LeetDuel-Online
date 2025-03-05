@@ -44,7 +44,7 @@ export default function Home() {
     });
     socket.on("game_started", (data) => {
       console.log(data);
-      setMessage(`Game started! Problem: ${data.problem.title}`);
+      setMessage(`Game started! Problem: ${data.problem.name}`);
       setProblem(data.problem);
       setPartyCode(data.party_code);
       router.push(`/game?party=${encodeURIComponent(data.party_code)}`);
@@ -76,6 +76,15 @@ export default function Home() {
     if (localPartyCode) {
       socket.emit("start_game", { party_code: localPartyCode });
     }
+  };
+
+  const leaveGame = () => {
+    localSetUsername("");
+    setLocalPartyCode("");
+    setJoined(false);
+    setPartyCode("");
+    setUsername("");
+    setMessage("");
   };
 
   return (
@@ -122,9 +131,15 @@ export default function Home() {
           <div className="transition-all duration-500 transform translate-y-0 opacity-100 mb-6">
             <button
               onClick={startGame}
-              className="w-full bg-purple-600 dark:bg-purple-500 text-white py-3 rounded-lg hover:bg-purple-700 dark:hover:bg-purple-600 transition"
+              className="w-full bg-purple-600 dark:bg-purple-500 text-white py-3 rounded-lg hover:bg-purple-700 dark:hover:bg-purple-600 transition mb-3"
             >
               Start Game
+            </button>
+            <button
+              onClick={leaveGame}
+              className="w-full bg-red-600 dark:bg-red-500 text-white py-3 rounded-lg hover:bg-red-700 dark:hover:bg-red-600 transition"
+            >
+              Leave Game
             </button>
           </div>
         )}
