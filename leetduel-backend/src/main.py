@@ -22,14 +22,12 @@ socket_app = socketio.ASGIApp(sio, app)
 parties = {}
 
 
-def get_random_problem(problem_id=None):
+def get_random_problem(difficulty, problem_id=None):
     db = SessionLocal()
 
-    if not problem_id:
-        problem_id = random.randint(1, get_count(db))
     try:
         print(problem_id)
-        problem = get_problem(db, problem_id)
+        problem = get_problem(db, difficulty, problem_id)
         print(problem)
         return {"name": problem.problem_name, "description": problem.problem_description, "difficulty": problem.problem_difficulty, "test_cases": problem.test_cases, "function_signature": problem.function_signature}
     finally:
@@ -49,8 +47,8 @@ def reset_players_passed(party_code):
     for player in parties[party_code]["players"]:
         player["passed"] = False
 
-async def game_timeout(party_code):
-    await asyncio.sleep(900)
+async def game_timeout(party_code, time_limit):
+    await asyncio.sleep(int(time_limit) * 60)
     if parties[party_code]["status"] == "in_progress":
         parties[party_code]["status"] = "finished"
         reset_players_passed(party_code)
@@ -92,15 +90,20 @@ async def join_party(sid, data):
 async def start_game(sid, data):
     print(f"start_game event received from {sid}: {data}")
     party_code = data["party_code"]
+    difficulty = [data["easy"], data["medium"], data["hard"]]
+    time_limit = data["time_limit"]
+
+    if time_limit == "":
+        time_limit = "15"
 
     if party_code in parties and parties[party_code]["host"] == sid:
-        problem = get_random_problem()
+        problem = get_random_problem(difficulty)
         parties[party_code]["problem"] = problem
         parties[party_code]["status"] = "in_progress"
 
         await sio.emit("game_started", {"problem": problem, "party_code": party_code}, room=party_code)
         # Start the game timeout task
-        asyncio.create_task(game_timeout(party_code))
+        asyncio.create_task(game_timeout(party_code, time_limit))
     else:
         await sio.emit("error", {"message": "You are not the host"}, to=sid)
 

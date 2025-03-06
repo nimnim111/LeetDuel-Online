@@ -1,9 +1,23 @@
 from sqlalchemy.orm import Session
 from .models import Problem
+import random
 
-def get_problem(db: Session, problem_id: int):
-    # Ensure that 'id' matches the primary key name in your models
-    return db.query(Problem).filter(Problem.problem_id == problem_id).first()
+def get_problem(db: Session, difficulties: list[bool], problem_id: int = None) -> Problem:
+    if problem_id is not None:
+        return db.query(Problem).filter(Problem.problem_id == problem_id).first()
+    # Map difficulties boolean array to string values (order: easy, medium, hard)
+    enabled_difficulties = []
+    if difficulties[0]:
+        enabled_difficulties.append("Easy")
+    if difficulties[1]:
+        enabled_difficulties.append("Medium")
+    if difficulties[2]:
+        enabled_difficulties.append("Hard")
+    # Get all problems matching enabled difficulties
+    problems = db.query(Problem).filter(Problem.problem_difficulty.in_(enabled_difficulties)).all()
+    if not problems:
+        return None
+    return random.choice(problems)
 
 def get_count(db: Session):
     return db.query(Problem).count()

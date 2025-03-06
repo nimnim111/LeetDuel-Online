@@ -11,9 +11,9 @@ class Problem:
         self.language_id = language_id
         self.problem = problem
         self.stdinput = json.dumps([json.loads(test_case["input"]) for test_case in problem["test_cases"]])
-        
 
-    def submit_code(self, code: str, timeout: int = 3) -> str:
+
+    def submit_code(self, code: str, timeout: int = 10) -> str:
         """Executes code with a timeout to prevent infinite loops."""
         code = "import sys\nimport json\n" + code + """
 input_data = sys.stdin.read().strip()

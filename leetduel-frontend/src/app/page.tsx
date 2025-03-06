@@ -12,6 +12,11 @@ export default function Home() {
   const [message, setMessage] = useState("");
   const [joined, setJoined] = useState(false);
   const [localPartyCode, setLocalPartyCode] = useState("");
+  // New state variables for time limit and difficulties
+  const [timeLimit, setTimeLimit] = useState("");
+  const [easy, setEasy] = useState(false);
+  const [medium, setMedium] = useState(false);
+  const [hard, setHard] = useState(false);
 
   // Check for party in query parameters so that joined remains true
   useEffect(() => {
@@ -73,8 +78,18 @@ export default function Home() {
   };
 
   const startGame = () => {
+    if (isNaN(Number(timeLimit))) {
+      setMessage("Time limit must be a number");
+      return;
+    }
     if (localPartyCode) {
-      socket.emit("start_game", { party_code: localPartyCode });
+      socket.emit("start_game", {
+        party_code: localPartyCode,
+        time_limit: timeLimit,
+        easy,
+        medium,
+        hard,
+      });
     }
   };
 
@@ -129,6 +144,46 @@ export default function Home() {
         )}
         {joined && (
           <div className="transition-all duration-500 transform translate-y-0 opacity-100 mb-6">
+            {/* Updated checklist for difficulty selection in a row */}
+            <div className="mt-4 flex items-center space-x-6">
+              <label className="flex items-center space-x-1">
+                <input
+                  type="checkbox"
+                  className="form-checkbox text-blue-600"
+                  checked={easy}
+                  onChange={(e) => setEasy(e.target.checked)}
+                />
+                <span className="text-gray-800 dark:text-gray-200">Easy</span>
+              </label>
+              <label className="flex items-center space-x-1">
+                <input
+                  type="checkbox"
+                  className="form-checkbox text-green-600"
+                  checked={medium}
+                  onChange={(e) => setMedium(e.target.checked)}
+                />
+                <span className="text-gray-800 dark:text-gray-200">Medium</span>
+              </label>
+              <label className="flex items-center space-x-1">
+                <input
+                  type="checkbox"
+                  className="form-checkbox text-red-600"
+                  checked={hard}
+                  onChange={(e) => setHard(e.target.checked)}
+                />
+                <span className="text-gray-800 dark:text-gray-200">Hard</span>
+              </label>
+            </div>
+            {/* New input for time limit */}
+            <div className="mt-4">
+              <input
+                type="number"
+                placeholder="Time limit (minutes)"
+                value={timeLimit}
+                onChange={(e) => setTimeLimit(e.target.value)}
+                className="w-full px-4 py-3 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition mb-3"
+              />
+            </div>
             <button
               onClick={startGame}
               className="w-full bg-purple-600 dark:bg-purple-500 text-white py-3 rounded-lg hover:bg-purple-700 dark:hover:bg-purple-600 transition mb-3"
@@ -144,7 +199,7 @@ export default function Home() {
           </div>
         )}
         {message && (
-          <p className="text-center text-lg text-gray-800 dark:text-gray-200">
+          <p className="text-center text-lg text-gray-800 dark:text-gray-200 whitespace-pre-line">
             {message}
           </p>
         )}
