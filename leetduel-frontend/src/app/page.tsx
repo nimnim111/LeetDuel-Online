@@ -10,6 +10,7 @@ export default function Home() {
   const { setProblem, setPartyCode, setUsername } = useGame();
   const [username, localSetUsername] = useState("");
   const [message, setMessage] = useState("");
+  const [members, setMembers] = useState<string[]>([]);
   const [joined, setJoined] = useState(false);
   const [localPartyCode, setLocalPartyCode] = useState("");
   const [timeLimit, setTimeLimit] = useState("");
@@ -32,25 +33,29 @@ export default function Home() {
 
   useEffect(() => {
     socket.on("party_created", (data) => {
-      setMessage(
-        `Party created with code: ${data.party_code}\nMembers:\n${data.username}`
-      );
+      setMessage(`Party created with code: ${data.party_code}`);
       setLocalPartyCode(data.party_code);
       setPartyCode(data.party_code);
       setJoined(true);
       setUsername(username);
+      setMembers(data.members ? data.members : [data.username]);
     });
     socket.on("player_joined", (data) => {
-      setMessage(`${message + "\n" + username}`);
+      setMessage(`${message}\n${data.username} joined`);
       setJoined(true);
       setUsername(username);
+      setMembers((prev) => [...prev, data.username]);
     });
     socket.on("game_started", (data) => {
       console.log(data);
       setMessage(`Game started! Problem: ${data.problem.name}`);
       setProblem(data.problem);
       setPartyCode(data.party_code);
-      router.push(`/game?party=${encodeURIComponent(data.party_code)}`);
+      router.push(
+        `/game?party=${encodeURIComponent(
+          data.party_code
+        )}&timeLimit=${encodeURIComponent(data.time_limit)}`
+      );
     });
     socket.on("error", (data) => {
       setMessage(`Error: ${data.message}`);
@@ -77,11 +82,15 @@ export default function Home() {
 
   const startGame = () => {
     if (isNaN(Number(timeLimit))) {
-      setMessage("Time limit must be a number");
+      setMessage("Time limit must be a number.");
+      return;
+    }
+    if (timeLimit && Number(timeLimit) < 1) {
+      setMessage("Time limit must be at least 1 minute.");
       return;
     }
     if (!easy && !medium && !hard) {
-      setMessage("Please select at least one difficulty level");
+      setMessage("Please select at least one difficulty level.");
       return;
     }
     if (localPartyCode) {
@@ -146,7 +155,6 @@ export default function Home() {
         )}
         {joined && (
           <div className="transition-all duration-500 transform translate-y-0 opacity-100 mb-6">
-            {/* Updated checklist for difficulty selection in a row */}
             <div className="mt-4 flex items-center space-x-6">
               <label className="flex items-center space-x-1">
                 <input
@@ -176,7 +184,6 @@ export default function Home() {
                 <span className="text-gray-800 dark:text-gray-200">Hard</span>
               </label>
             </div>
-            {/* New input for time limit */}
             <div className="mt-4">
               <input
                 type="number"
@@ -198,12 +205,23 @@ export default function Home() {
             >
               Leave Game
             </button>
+
+            {message && (
+              <p className="text-center text-lg text-gray-800 dark:text-gray-200 whitespace-pre-line mt-4">
+                {message}
+              </p>
+            )}
+            <div className="mt-4">
+              <h2 className="text-xl font-bold mb-2">Members</h2>
+              <ul className="list-inside">
+                {members.map((member, idx) => (
+                  <li key={idx} className="text-lg">
+                    {member}
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
-        )}
-        {message && (
-          <p className="text-center text-lg text-gray-800 dark:text-gray-200 whitespace-pre-line">
-            {message}
-          </p>
         )}
       </div>
     </div>

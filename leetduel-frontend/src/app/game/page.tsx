@@ -21,6 +21,27 @@ export default function GamePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const party = searchParams.get("party") || "Unknown";
+  const timeLimitParam = searchParams.get("timeLimit"); // new
+  const initialTime = timeLimitParam ? parseInt(timeLimitParam, 10) * 60 : 0; // in seconds, converting minutes -> seconds
+  const [timeLeft, setTimeLeft] = useState(initialTime); // new
+
+  // Timer effect: counts down every second
+  useEffect(() => {
+    // new
+    if (initialTime <= 0) return;
+    const interval = setInterval(() => {
+      setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [initialTime]);
+
+  // Helper to format time as mm:ss
+  const formatTime = (seconds: number) => {
+    // new
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  };
 
   const starterCode = problem
     ? problem.function_signature +
@@ -139,8 +160,20 @@ export default function GamePage() {
     }
   };
 
+  const leaveGame = () => {
+    socket.emit("leave_party", { party_code: party, username });
+    router.push(`/`);
+  };
+
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 p-6 text-gray-900 dark:text-gray-100">
+    <div
+      className="min-h-screen bg-gray-100 dark:bg-gray-900 p-6 text-gray-900 dark:text-gray-100"
+      style={{ position: "relative" }}
+    >
+      {/* Timer in top left corner */}
+      <div className="absolute top-0 left-0 m-4 p-2 bg-white dark:bg-gray-800 rounded shadow text-lg font-bold">
+        {formatTime(timeLeft)}
+      </div>
       <div className="max-w-7xl mx-auto" style={{ marginRight: "16.6667%" }}>
         <h1 className="text-4xl font-bold mb-6 text-center">LeetDuel</h1>
         {problem ? (
@@ -244,6 +277,14 @@ export default function GamePage() {
             </div>
           </div>
         </div>
+      </div>
+      <div className="fixed bottom-0 left-0 m-4">
+        <button
+          onClick={leaveGame}
+          className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+        >
+          Leave Game
+        </button>
       </div>
     </div>
   );

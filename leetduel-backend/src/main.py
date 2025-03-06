@@ -101,7 +101,7 @@ async def start_game(sid, data):
         parties[party_code]["problem"] = problem
         parties[party_code]["status"] = "in_progress"
 
-        await sio.emit("game_started", {"problem": problem, "party_code": party_code}, room=party_code)
+        await sio.emit("game_started", {"problem": problem, "party_code": party_code, "time_limit": time_limit}, room=party_code)
         asyncio.create_task(game_timeout(party_code, time_limit))
     else:
         await sio.emit("error", {"message": "You are not the host"}, to=sid)
@@ -150,6 +150,25 @@ async def chat_message(sid, data):
     username = data["username"]
 
     await sio.emit("message_received", {"username": username, "message": message}, room=party_code)
+
+@sio.event
+async def leave_party(sid, data):
+    print(f"leave_party event received from {sid}: {data}")
+    party_code = data["party_code"]
+    username = data["username"]
+
+    if party_code in parties:
+        if parties[party_code]["host"] == sid:
+            await sio.emit("game_over_message", {"message": "Host left the party."}, room=party_code)
+            await asyncio.sleep(3)
+            await sio.emit("game_over", room=party_code)
+        else:
+            for player in parties[party_code]["players"]:
+                if player["sid"] == sid:
+                    parties[party_code]["players"].remove(player)
+                    await sio.emit("player_submit", {"message": username + " has left the party."}, room=party_code)
+                    await sio.leave_room(sid, party_code)
+                    break
 
 
 @app.get("/")
