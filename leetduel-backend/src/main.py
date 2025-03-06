@@ -9,12 +9,12 @@ import asyncio
 from .database import SessionLocal
 from .crud import get_problem, get_count
 
-from src.routes.problems import router as problems_router  # Added import
+from src.routes.problems import router as problems_router
 
 language_id = 100
 
 app = FastAPI()
-app.include_router(problems_router)  # Mount problems endpoints
+app.include_router(problems_router)
 
 sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*")
 socket_app = socketio.ASGIApp(sio, app)
@@ -102,7 +102,6 @@ async def start_game(sid, data):
         parties[party_code]["status"] = "in_progress"
 
         await sio.emit("game_started", {"problem": problem, "party_code": party_code}, room=party_code)
-        # Start the game timeout task
         asyncio.create_task(game_timeout(party_code, time_limit))
     else:
         await sio.emit("error", {"message": "You are not the host"}, to=sid)
@@ -163,5 +162,4 @@ async def read_root():
 
 
 if __name__ == "__main__":
-    # Change the run command to use the module path (src.main:socket_app)
     uvicorn.run("src.main:socket_app", host="0.0.0.0", port=8000)

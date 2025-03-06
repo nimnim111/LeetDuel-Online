@@ -12,13 +12,11 @@ export default function Home() {
   const [message, setMessage] = useState("");
   const [joined, setJoined] = useState(false);
   const [localPartyCode, setLocalPartyCode] = useState("");
-  // New state variables for time limit and difficulties
   const [timeLimit, setTimeLimit] = useState("");
-  const [easy, setEasy] = useState(false);
-  const [medium, setMedium] = useState(false);
-  const [hard, setHard] = useState(false);
+  const [easy, setEasy] = useState(true);
+  const [medium, setMedium] = useState(true);
+  const [hard, setHard] = useState(true);
 
-  // Check for party in query parameters so that joined remains true
   useEffect(() => {
     const qpParty = searchParams.get("party");
     const qpUsername = searchParams.get("username");
@@ -80,6 +78,10 @@ export default function Home() {
   const startGame = () => {
     if (isNaN(Number(timeLimit))) {
       setMessage("Time limit must be a number");
+      return;
+    }
+    if (!easy && !medium && !hard) {
+      setMessage("Please select at least one difficulty level");
       return;
     }
     if (localPartyCode) {

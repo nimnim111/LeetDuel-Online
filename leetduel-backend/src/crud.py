@@ -5,7 +5,6 @@ import random
 def get_problem(db: Session, difficulties: list[bool], problem_id: int = None) -> Problem:
     if problem_id is not None:
         return db.query(Problem).filter(Problem.problem_id == problem_id).first()
-    # Map difficulties boolean array to string values (order: easy, medium, hard)
     enabled_difficulties = []
     if difficulties[0]:
         enabled_difficulties.append("Easy")
@@ -13,7 +12,6 @@ def get_problem(db: Session, difficulties: list[bool], problem_id: int = None) -
         enabled_difficulties.append("Medium")
     if difficulties[2]:
         enabled_difficulties.append("Hard")
-    # Get all problems matching enabled difficulties
     problems = db.query(Problem).filter(Problem.problem_difficulty.in_(enabled_difficulties)).all()
     if not problems:
         return None

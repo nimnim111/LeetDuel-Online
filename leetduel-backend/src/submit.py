@@ -29,7 +29,7 @@ for result in results:
                 input=self.stdinput,
                 capture_output=True,
                 text=True,
-                timeout=timeout  # Set timeout (in seconds)
+                timeout=timeout
             )
             if result.returncode != 0:
                 return {"message": result.stderr, "status": "Failed"}
