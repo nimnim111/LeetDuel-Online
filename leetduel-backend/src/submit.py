@@ -14,15 +14,15 @@ class Problem:
 
 
     def submit_code(self, code: str, timeout: int = 5) -> str:
-        code = "import sys\nimport json\n" + code + """
+        code = "import sys\nimport json\nimport time\n" + code + """
 input_data = sys.stdin.read().strip()
 test_cases = json.loads(input_data)
+start_time = time.time_ns()
 results = [run(*args) for args in test_cases]
 for result in results:
     print(result)
+print(int((time.time_ns() - start_time) / 1e6))
         """
-        
-        start_time = time.time_ns()
 
         try:
             result = subprocess.run(
@@ -33,11 +33,10 @@ for result in results:
                 timeout=timeout
             )
 
-            interval = int((time.time_ns() - start_time) / 1e6)
             if result.returncode != 0:
                 return {"message": result.stderr, "status": "Failed"}
             
-            return self.check_test_cases(result.stdout, str(interval))
+            return self.check_test_cases(result.stdout)
 
         except subprocess.TimeoutExpired:
             return {"message": "Time limit exceeded", "status": "Failed"}
@@ -46,12 +45,14 @@ for result in results:
             return {"message": str(e), "status": "Failed"}
         
 
-    def check_test_cases(self, data: dict, time: int) -> dict:
+    def check_test_cases(self, data: dict) -> dict:
         test_cases = self.problem["test_cases"]
         if not data:
             return {"message": "No output", "status": "Failed"}
-        
+
         data = data.split("\n")[:-1]
+        time = data.pop()
+
         count = 0
         failed_index = -1
 
