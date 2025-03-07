@@ -24,6 +24,7 @@ export default function GamePage() {
   const timeLimitParam = searchParams.get("timeLimit"); // new
   const initialTime = timeLimitParam ? parseInt(timeLimitParam, 10) * 60 : 0; // in seconds, converting minutes -> seconds
   const [timeLeft, setTimeLeft] = useState(initialTime); // new
+  const [buttonDisabled, setButtonDisabled] = useState(false);
 
   // Timer effect: counts down every second
   useEffect(() => {
@@ -59,6 +60,7 @@ export default function GamePage() {
     }
     socket.on("code_submitted", (data) => {
       setConsoleOutput(data.message);
+      setButtonDisabled(false);
     });
 
     socket.on("message_received", (data) => {
@@ -142,6 +144,7 @@ export default function GamePage() {
     console.log(party);
     console.log(username);
     setConsoleOutput("Running code...");
+    setButtonDisabled(true);
     socket.emit("submit_code", {
       code: code,
       party_code: party,
@@ -206,6 +209,7 @@ export default function GamePage() {
               ))}
             <button
               onClick={runCode}
+              disabled={buttonDisabled}
               className="absolute bottom-4 right-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition"
             >
               Run Code
@@ -244,7 +248,7 @@ export default function GamePage() {
         </div>
         <div className="fixed top-0 right-0 h-screen w-1/6">
           <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 h-full flex flex-col">
-            <h2 className="text-xl font-bold mb-4">Live Chat</h2>
+            <h2 className="text-xl font-bold mb-4">Party Chat</h2>
             <div className="flex-1 overflow-y-auto mb-4 space-y-2">
               {chatMessages.map((msg, idx) => (
                 <div

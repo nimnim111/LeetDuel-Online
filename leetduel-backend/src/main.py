@@ -135,7 +135,7 @@ async def submit_code(sid: str, data: dict) -> None:
     else:
         message_to_client = r["status"] + ", " + str(r["passed test cases"]) + "/" + str(r["total test cases"]) + " test cases in " + str(r["time"]) + " seconds."
         message_to_room = data["username"] + " passed " + str(r["passed test cases"]) + "/" + str(r["total test cases"]) + " test cases in " + str(r["time"]) + " seconds."
-        if r["failed_test"] is not None:
+        if "failed_test" in r and r["failed_test"] is not None:
             message_to_client += "\n" + r["failed_test"]
 
     if r["status"] == "Accepted":
@@ -170,18 +170,33 @@ async def leave_party(sid: str, data: dict) -> None:
     party_code = data["party_code"]
     username = data["username"]
 
-    if party_code in parties:
+    if party_code not in parties:
+        return
+    
+    if parties[party_code]["status"] == "waiting":
         if parties[party_code]["host"] == sid:
-            await sio.emit("game_over_message", {"message": "Host left the party."}, room=party_code)
-            await asyncio.sleep(3)
-            await sio.emit("game_over", room=party_code)
+            del parties[party_code]
         else:
             for player in parties[party_code]["players"]:
                 if player["sid"] == sid:
                     parties[party_code]["players"].remove(player)
-                    await sio.emit("player_submit", {"message": username + " has left the party."}, room=party_code)
+                    await sio.emit("player_left", {"username": username}, room=party_code)
                     await sio.leave_room(sid, party_code)
                     break
+        
+        return
+
+    if parties[party_code]["host"] == sid:
+        await sio.emit("game_over_message", {"message": "Host left the party."}, room=party_code)
+        await asyncio.sleep(3)
+        await sio.emit("game_over", room=party_code)
+    else:
+        for player in parties[party_code]["players"]:
+            if player["sid"] == sid:
+                parties[party_code]["players"].remove(player)
+                await sio.emit("player_submit", {"message": username + " has left the party."}, room=party_code)
+                await sio.leave_room(sid, party_code)
+                break
 
 
 @app.get("/")

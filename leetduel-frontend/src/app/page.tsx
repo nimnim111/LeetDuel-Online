@@ -28,6 +28,7 @@ export default function Home() {
       if (qpUsername) {
         localSetUsername(qpUsername);
       }
+      setMembers(qpUsername ? [qpUsername] : []);
     }
   }, [searchParams, setPartyCode]);
 
@@ -46,6 +47,9 @@ export default function Home() {
       setUsername(username);
       setMembers((prev) => [...prev, data.username]);
     });
+    socket.on("player_left", (data) => {
+      setMembers((prev) => prev.filter((member) => member !== data.username));
+    });
     socket.on("game_started", (data) => {
       console.log(data);
       setMessage(`Game started! Problem: ${data.problem.name}`);
@@ -63,6 +67,7 @@ export default function Home() {
     return () => {
       socket.off("party_created");
       socket.off("player_joined");
+      socket.off("player_left");
       socket.off("game_started");
       socket.off("error");
     };
@@ -105,6 +110,7 @@ export default function Home() {
   };
 
   const leaveGame = () => {
+    socket.emit("leave_party", { party_code: localPartyCode, username });
     localSetUsername("");
     setLocalPartyCode("");
     setJoined(false);
