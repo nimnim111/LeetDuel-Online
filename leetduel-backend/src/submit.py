@@ -1,5 +1,6 @@
 import json
 import subprocess
+import time
 
 
 
@@ -20,6 +21,8 @@ results = [run(*args) for args in test_cases]
 for result in results:
     print(result)
         """
+        
+        start_time = time.time_ns()
 
         try:
             result = subprocess.run(
@@ -29,10 +32,12 @@ for result in results:
                 text=True,
                 timeout=timeout
             )
+
+            interval = int((time.time_ns() - start_time) / 1e6)
             if result.returncode != 0:
                 return {"message": result.stderr, "status": "Failed"}
             
-            return self.check_test_cases(result.stdout, "N/A")
+            return self.check_test_cases(result.stdout, str(interval))
 
         except subprocess.TimeoutExpired:
             return {"message": "Time limit exceeded", "status": "Failed"}
