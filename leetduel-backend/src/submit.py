@@ -1,6 +1,7 @@
 import json
 import subprocess
 import time
+from ratelimit import limits, RateLimitException
 
 
 
@@ -25,13 +26,7 @@ print(int((time.time_ns() - start_time) / 1e6))
         """
 
         try:
-            result = subprocess.run(
-                ["docker", "run", "-i", "--rm", "--memory=100m", "--cpu-shares=50", "code-runner", "python3", "-c", code],
-                input=self.stdinput,
-                capture_output=True,
-                text=True,
-                timeout=timeout
-            )
+            result = self.run_subprocess(code, timeout)
 
             if result.returncode != 0:
                 return {"message": result.stderr, "status": "Failed"}
@@ -40,6 +35,9 @@ print(int((time.time_ns() - start_time) / 1e6))
 
         except subprocess.TimeoutExpired:
             return {"message": "Time limit exceeded", "status": "Failed"}
+        
+        except RateLimitException:
+            return {"message": "Rate limited! Please wait 5 seconds and try again.", "status": "Failed"}
         
         except Exception as e:
             return {"message": str(e), "status": "Failed"}
@@ -74,3 +72,14 @@ print(int((time.time_ns() - start_time) / 1e6))
             r["failed_test"] = "Input: " + test_cases[failed_index]["input"] + "\nExpected " + test_cases[failed_index]["output"] + ", got " + data[failed_index]
 
         return r
+    
+
+    @limits(calls=5, period=10)
+    def run_subprocess(self, code, timeout):
+        return subprocess.run(
+            ["docker", "run", "-i", "--rm", "--memory=100m", "--cpu-shares=50", "code-runner", "python3", "-c", code],
+            input=self.stdinput,
+            capture_output=True,
+            text=True,
+            timeout=timeout
+        )

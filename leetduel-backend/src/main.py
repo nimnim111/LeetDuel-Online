@@ -5,6 +5,7 @@ import socketio
 import asyncio
 import uvicorn
 
+from ratelimit import limits, RateLimitException
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
@@ -63,6 +64,11 @@ async def game_timeout(party_code: str, time_limit: str) -> None:
         await sio.emit("game_over_message", {"message": "Time is up!"}, room=party_code)
         await asyncio.sleep(3)
         await sio.emit("game_over", room=party_code)
+
+
+@limits(calls=20, period=5)
+def rate_limiter() -> None:
+    return
 
 
 
@@ -144,7 +150,9 @@ async def submit_code(sid: str, data: dict) -> None:
                 player["passed"] = True
 
     await sio.emit("code_submitted", {"message": message_to_client}, to=sid)
-    await sio.emit("player_submit", {"message": message_to_room}, room=party_code)
+
+    if "message" not in r or r["message"] != "Rate limited! Please wait 5 seconds and try again.":
+        await sio.emit("player_submit", {"message": message_to_room}, room=party_code)
 
     if all_players_passed(party_code):
         parties[party_code]["status"] = "finished"
@@ -156,6 +164,11 @@ async def submit_code(sid: str, data: dict) -> None:
 
 @sio.event
 async def chat_message(sid: str, data: dict) -> None:
+    try:
+        rate_limiter()
+    except RateLimitException:
+        return
+    
     print(f"chat_message event received from {sid}: {data}")
     party_code = data["party_code"]
     message = data["message"]
