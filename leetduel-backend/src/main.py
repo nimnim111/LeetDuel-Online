@@ -215,6 +215,21 @@ async def leave_party(sid: str, data: dict) -> None:
                 break
 
 
+@sio.event
+async def disconnect(sid: str) -> None:
+    # Handle player disconnection by removing from parties
+    for party_code, party in list(parties.items()):
+        for player in party["players"]:
+            if player["sid"] == sid:
+                party["players"].remove(player)
+                await sio.emit("player_left", {"username": player.get("username", "Unknown")}, room=party_code)
+                # Delete party if host disconnected or if no players remain
+                if party["host"] == sid or not party["players"]:
+                    del parties[party_code]
+                    await sio.emit("game_over_message", {"message": "Party deleted due to disconnect."}, room=party_code)
+                break
+
+
 @app.get("/")
 async def read_root():
     return JSONResponse({"message": "Server is running"})
