@@ -17,6 +17,9 @@ export default function GamePage() {
   const [chatInput, setChatInput] = useState("");
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const lineNumbersRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const editorContainerRef = useRef<HTMLDivElement>(null); // new
+  const shouldScrollRef = useRef(false);
   const { problem, username } = useGame();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -25,6 +28,18 @@ export default function GamePage() {
   const initialTime = timeLimitParam ? parseInt(timeLimitParam, 10) * 60 : 0; // in seconds, converting minutes -> seconds
   const [timeLeft, setTimeLeft] = useState(initialTime); // new
   const [buttonDisabled, setButtonDisabled] = useState(false);
+
+  const starterCode = problem
+    ? problem.function_signature +
+      `:` +
+      `
+    # your code here
+    return`
+    : ``;
+
+  const [code, setCode] = useState(starterCode);
+  const lastCodeRef = useRef(code);
+  const scrollIfAppendedRef = useRef(false);
 
   // Timer effect: counts down every second
   useEffect(() => {
@@ -43,16 +58,6 @@ export default function GamePage() {
     const s = seconds % 60;
     return `${m}:${s.toString().padStart(2, "0")}`;
   };
-
-  const starterCode = problem
-    ? problem.function_signature +
-      `:` +
-      `
-    # your code here
-    return`
-    : ``;
-
-  const [code, setCode] = useState(starterCode);
 
   useEffect(() => {
     if (!problem) {
@@ -96,6 +101,39 @@ export default function GamePage() {
     };
   }, [problem, router]);
 
+  useEffect(() => {
+    // auto-resize textarea and line numbers and conditionally scroll to bottom
+    if (
+      editorContainerRef.current &&
+      editorRef.current &&
+      lineNumbersRef.current
+    ) {
+      editorRef.current.style.height = "auto";
+      const newHeight = editorRef.current.scrollHeight;
+      editorRef.current.style.height = newHeight + "px";
+      lineNumbersRef.current.style.height = newHeight + "px";
+      // Only scroll if new text was appended and the caret was at the end.
+      if (
+        code.startsWith(lastCodeRef.current) &&
+        code.length > lastCodeRef.current.length &&
+        scrollIfAppendedRef.current
+      ) {
+        editorContainerRef.current.scrollTop =
+          editorContainerRef.current.scrollHeight;
+      }
+      lastCodeRef.current = code;
+      scrollIfAppendedRef.current = false;
+    }
+  }, [code]);
+
+  useEffect(() => {
+    // auto-scroll chat to bottom when new message is added
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop =
+        chatContainerRef.current.scrollHeight;
+    }
+  }, [chatMessages]);
+
   const lines = code.split("\n");
 
   const handleScroll = () => {
@@ -110,7 +148,18 @@ export default function GamePage() {
     "[": "]",
   };
 
-  const handleKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Record if caret is at the end before processing the key
+    const charLength = e.currentTarget.value.length;
+    if (
+      charLength > 8000 &&
+      (/^[a-z0-9]$/i.test(e.key) || e.key === "Enter" || e.key === "Tab")
+    ) {
+      e.preventDefault();
+      return;
+    }
+    scrollIfAppendedRef.current =
+      e.currentTarget.selectionStart === code.length;
     if (e.key === "Tab") {
       e.preventDefault();
       const start = e.currentTarget.selectionStart;
@@ -219,7 +268,10 @@ export default function GamePage() {
       <div className="absolute top-0 left-0 m-4 p-2 bg-white dark:bg-gray-800 rounded shadow text-lg font-bold">
         {formatTime(timeLeft)}
       </div>
-      <div className="max-w-7xl mx-auto" style={{ marginRight: "16.6667%" }}>
+      <div
+        className="max-w-7xl mx-auto h-[75vh]"
+        style={{ marginRight: "16.6667%" }}
+      >
         <h1 className="text-4xl font-bold mb-6 text-center">LeetDuel</h1>
         {problem ? (
           <p className="text-xl text-center mb-6">
@@ -228,7 +280,7 @@ export default function GamePage() {
         ) : (
           <p className="text-xl text-center mb-6">Loading problem...</p>
         )}
-        <div className="flex flex-col md:flex-row gap-6">
+        <div className="flex flex-col md:flex-row h-full gap-6">
           <div className="relative md:w-1/2 bg-white dark:bg-gray-800 shadow rounded-lg p-6">
             <h2 className="text-2xl font-semibold mb-4">Problem Description</h2>
             <p className="text-md">
@@ -258,15 +310,23 @@ export default function GamePage() {
             </button>
           </div>
           <div className="md:w-1/2 flex flex-col">
-            <div className="relative flex">
+            {/* Begin code editor container with fixed height */}
+            <div
+              ref={editorContainerRef} // new ref added here
+              className="relative flex h-[55vh] overflow-auto bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg border border-gray-300 dark:border-gray-600"
+              onScroll={(e) => {
+                if (lineNumbersRef.current) {
+                  lineNumbersRef.current.scrollTop = e.currentTarget.scrollTop;
+                }
+              }}
+            >
               <div
                 ref={lineNumbersRef}
-                className={`${firaCode.className} select-none bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 text-right pr-2 rounded-l-lg border border-r-0 border-gray-400 dark:border-gray-500 overflow-hidden`}
+                className={`${firaCode.className} select-none text-gray-700 p-4 dark:text-gray-300 text-right pr-2 bg-gray-600`}
                 style={{
                   minWidth: "3rem",
-                  paddingTop: "1rem",
-                  paddingBottom: "0.75rem",
                   lineHeight: "1.5rem",
+                  flexShrink: 0,
                 }}
               >
                 {lines.map((_, idx) => (
@@ -276,14 +336,15 @@ export default function GamePage() {
               <textarea
                 ref={editorRef}
                 value={code}
-                onChange={(e) => setCode(e.target.value)}
-                onScroll={handleScroll}
-                onKeyDown={handleKey}
-                className={`${firaCode.className} flex-1 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 p-4 rounded-r-lg border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none`}
-                rows={15}
+                onChange={(e) => setCode(e.target.value)} // updated to use handleChange
+                onKeyDown={handleKeyDown}
+                className={`${firaCode.className} flex-1 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 p-4`}
+                // removed fixed height; auto-expansion is controlled by the effect
+                style={{ overflow: "hidden" }}
               />
             </div>
-            <div className="mt-4 bg-black text-green-400 font-mono p-4 rounded-lg h-40 overflow-auto">
+            {/* End code editor container */}
+            <div className="mt-4 bg-black text-green-400 font-mono p-4 rounded-lg h-[20vh] overflow-auto">
               {consoleOutput}
             </div>
           </div>
@@ -291,7 +352,10 @@ export default function GamePage() {
         <div className="fixed top-0 right-0 h-screen w-1/6">
           <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 h-full flex flex-col">
             <h2 className="text-xl font-bold mb-4">Party Chat</h2>
-            <div className="flex-1 overflow-y-auto mb-4 space-y-2">
+            <div
+              ref={chatContainerRef}
+              className="flex-1 overflow-y-auto mb-4 space-y-2"
+            >
               {chatMessages.map((msg, idx) => (
                 <div
                   key={idx}
