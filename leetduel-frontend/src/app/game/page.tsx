@@ -117,9 +117,11 @@ export default function GamePage() {
       const end = e.currentTarget.selectionEnd;
       setCode(code.substring(0, start) + "    " + code.substring(end));
       setTimeout(() => {
-        e.currentTarget.selectionStart = e.currentTarget.selectionEnd =
-          start + 4;
-      });
+        if (editorRef.current) {
+          editorRef.current.focus();
+          editorRef.current.setSelectionRange(start + 4, start + 4);
+        }
+      }, 0);
     }
     if (["{", "(", "["].includes(e.key)) {
       e.preventDefault();
@@ -135,6 +137,46 @@ export default function GamePage() {
         if (editorRef.current) {
           editorRef.current.focus();
           editorRef.current.setSelectionRange(start + 1, start + 1);
+        }
+      }, 0);
+    }
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const target = e.currentTarget;
+      const cursor = target.selectionStart;
+      const lines = target.value.split("\n");
+
+      let charCount = lines[0].length + 1;
+      let indent = 0;
+      let lineLength = 0;
+
+      for (let i = 1; i < lines.length; i++) {
+        lineLength = lines[i].length + 1;
+        if (charCount <= cursor && cursor < charCount + lineLength) {
+          indent = Math.floor(
+            (lines[i].length - lines[i].trimStart().length) / 4
+          );
+          if (lines[i].charAt(lineLength - 2) === ":") {
+            indent++;
+          }
+          lineLength = cursor - charCount + 1;
+          break;
+        }
+        charCount += lineLength;
+      }
+      const start = e.currentTarget.selectionStart;
+      const end = e.currentTarget.selectionEnd;
+      setCode(
+        code.substring(0, start) +
+          "\n" +
+          "    ".repeat(indent) +
+          code.substring(end)
+      );
+      charCount += 4 * indent + lineLength;
+      setTimeout(() => {
+        if (editorRef.current) {
+          editorRef.current.focus();
+          editorRef.current.setSelectionRange(charCount, charCount);
         }
       }, 0);
     }
