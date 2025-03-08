@@ -77,7 +77,7 @@ print(int((time.time_ns() - start_time) / 1e6))
     @limits(calls=5, period=10)
     def run_subprocess(self, code, timeout):
         return subprocess.run(
-            ["docker", "run", "-i", "--rm", "--memory=100m", "--cpu-shares=50", "code-runner", "python3", "-c", code],
+            ["python3", "-c", code],
             input=self.stdinput,
             capture_output=True,
             text=True,
