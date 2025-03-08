@@ -1,5 +1,5 @@
 "use client";
 import { io } from "socket.io-client";
 
-const socket = io("https://leetduel-production.up.railway.app/");
+const socket = io(process.env.SERVER_URL);
 export default socket;
