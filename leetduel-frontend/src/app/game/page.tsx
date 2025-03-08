@@ -18,15 +18,15 @@ export default function GamePage() {
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const lineNumbersRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
-  const editorContainerRef = useRef<HTMLDivElement>(null); // new
+  const editorContainerRef = useRef<HTMLDivElement>(null);
   const shouldScrollRef = useRef(false);
   const { problem, username } = useGame();
   const router = useRouter();
   const searchParams = useSearchParams();
   const party = searchParams.get("party") || "Unknown";
-  const timeLimitParam = searchParams.get("timeLimit"); // new
-  const initialTime = timeLimitParam ? parseInt(timeLimitParam, 10) * 60 : 0; // in seconds, converting minutes -> seconds
-  const [timeLeft, setTimeLeft] = useState(initialTime); // new
+  const timeLimitParam = searchParams.get("timeLimit");
+  const initialTime = timeLimitParam ? parseInt(timeLimitParam, 10) * 60 : 0;
+  const [timeLeft, setTimeLeft] = useState(initialTime);
   const [buttonDisabled, setButtonDisabled] = useState(false);
 
   const starterCode = problem
@@ -41,9 +41,7 @@ export default function GamePage() {
   const lastCodeRef = useRef(code);
   const scrollIfAppendedRef = useRef(false);
 
-  // Timer effect: counts down every second
   useEffect(() => {
-    // new
     if (initialTime <= 0) return;
     const interval = setInterval(() => {
       setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
@@ -51,9 +49,7 @@ export default function GamePage() {
     return () => clearInterval(interval);
   }, [initialTime]);
 
-  // Helper to format time as mm:ss
   const formatTime = (seconds: number) => {
-    // new
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
     return `${m}:${s.toString().padStart(2, "0")}`;
@@ -84,7 +80,6 @@ export default function GamePage() {
     });
 
     socket.on("game_over", () => {
-      // Redirect to Home and pass both party and username as query parameters
       router.push(
         `/?party=${encodeURIComponent(party)}&username=${encodeURIComponent(
           username
@@ -102,7 +97,6 @@ export default function GamePage() {
   }, [problem, router]);
 
   useEffect(() => {
-    // auto-resize textarea and line numbers and conditionally scroll to bottom
     if (
       editorContainerRef.current &&
       editorRef.current &&
@@ -112,7 +106,6 @@ export default function GamePage() {
       const newHeight = editorRef.current.scrollHeight;
       editorRef.current.style.height = newHeight + "px";
       lineNumbersRef.current.style.height = newHeight + "px";
-      // Only scroll if new text was appended and the caret was at the end.
       if (
         code.startsWith(lastCodeRef.current) &&
         code.length > lastCodeRef.current.length &&
@@ -127,7 +120,6 @@ export default function GamePage() {
   }, [code]);
 
   useEffect(() => {
-    // auto-scroll chat to bottom when new message is added
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop =
         chatContainerRef.current.scrollHeight;
@@ -136,12 +128,6 @@ export default function GamePage() {
 
   const lines = code.split("\n");
 
-  const handleScroll = () => {
-    if (editorRef.current && lineNumbersRef.current) {
-      lineNumbersRef.current.scrollTop = editorRef.current.scrollTop;
-    }
-  };
-
   const brackets: Record<string, string> = {
     "{": "}",
     "(": ")",
@@ -149,7 +135,6 @@ export default function GamePage() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    // Record if caret is at the end before processing the key
     const charLength = e.currentTarget.value.length;
     if (
       charLength > 8000 &&
@@ -264,7 +249,6 @@ export default function GamePage() {
       className="min-h-screen bg-gray-100 dark:bg-gray-900 p-6 text-gray-900 dark:text-gray-100"
       style={{ position: "relative" }}
     >
-      {/* Timer in top left corner */}
       <div className="absolute top-0 left-0 m-4 p-2 bg-white dark:bg-gray-800 rounded shadow text-lg font-bold">
         {formatTime(timeLeft)}
       </div>
@@ -310,9 +294,9 @@ export default function GamePage() {
             </button>
           </div>
           <div className="md:w-1/2 flex flex-col">
-            {/* Begin code editor container with fixed height */}
+            {/* Begin code editor*/}
             <div
-              ref={editorContainerRef} // new ref added here
+              ref={editorContainerRef}
               className="relative flex h-[55vh] overflow-auto bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg border border-gray-300 dark:border-gray-600"
               onScroll={(e) => {
                 if (lineNumbersRef.current) {
@@ -336,14 +320,18 @@ export default function GamePage() {
               <textarea
                 ref={editorRef}
                 value={code}
-                onChange={(e) => setCode(e.target.value)} // updated to use handleChange
+                onChange={(e) => setCode(e.target.value)}
                 onKeyDown={handleKeyDown}
                 className={`${firaCode.className} flex-1 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 p-4`}
-                // removed fixed height; auto-expansion is controlled by the effect
-                style={{ overflow: "hidden" }}
+                wrap="off"
+                style={{
+                  overflow: "hidden",
+                  overflowX: "auto",
+                  whiteSpace: "pre",
+                }}
               />
             </div>
-            {/* End code editor container */}
+            {/* End code editor*/}
             <div className="mt-4 bg-black text-green-400 font-mono p-4 rounded-lg h-[20vh] overflow-auto">
               {consoleOutput}
             </div>
