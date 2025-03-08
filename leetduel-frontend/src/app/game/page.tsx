@@ -13,13 +13,14 @@ const firaCode = Fira_Code({
 
 export default function GamePage() {
   const [consoleOutput, setConsoleOutput] = useState("Console output");
-  const [chatMessages, setChatMessages] = useState<string[]>(["Game started!"]);
+  const [chatMessages, setChatMessages] = useState([
+    { message: "Game started!", bold: true, color: "white" },
+  ]);
   const [chatInput, setChatInput] = useState("");
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const lineNumbersRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const editorContainerRef = useRef<HTMLDivElement>(null);
-  const shouldScrollRef = useRef(false);
   const { problem, username } = useGame();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -67,16 +68,23 @@ export default function GamePage() {
     socket.on("message_received", (data) => {
       setChatMessages((prevMessages) => [
         ...prevMessages,
-        `${data.username}: ${data.message}`,
+        {
+          message: `${data.username}: ${data.message}`,
+          bold: false,
+          color: "white",
+        },
       ]);
     });
 
     socket.on("player_submit", (data) => {
-      setChatMessages((prevMessages) => [...prevMessages, data.message]);
+      setChatMessages((prevMessages) => [...prevMessages, data]);
     });
 
     socket.on("game_over_message", (data) => {
-      setChatMessages((prevMessages) => [...prevMessages, data.message]);
+      setChatMessages((prevMessages) => [
+        ...prevMessages,
+        { message: data.message, bold: true, color: "white" },
+      ]);
     });
 
     socket.on("game_over", () => {
@@ -347,9 +355,10 @@ export default function GamePage() {
               {chatMessages.map((msg, idx) => (
                 <div
                   key={idx}
-                  className="text-sm text-gray-700 dark:text-gray-300 font-mono"
+                  className={`text-sm font-mono ${msg.bold ? "font-bold" : ""}`}
+                  style={{ color: msg.color, filter: "brightness(3)" }}
                 >
-                  {msg}
+                  {msg.message}
                 </div>
               ))}
             </div>

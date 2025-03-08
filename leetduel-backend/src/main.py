@@ -131,6 +131,7 @@ async def submit_code(sid: str, data: dict) -> None:
     code = data["code"]
     problem_obj = parties[party_code]["problem"]
     problem = Problem(language_id, problem_obj)
+    color = "Red"
 
     r = problem.submit_code(code)
 
@@ -145,6 +146,7 @@ async def submit_code(sid: str, data: dict) -> None:
             message_to_client += "\n" + r["failed_test"]
 
     if r["status"] == "Accepted":
+        color = "green"
         for player in parties[party_code]["players"]:
             if player["sid"] == sid:
                 player["passed"] = True
@@ -152,7 +154,7 @@ async def submit_code(sid: str, data: dict) -> None:
     await sio.emit("code_submitted", {"message": message_to_client}, to=sid)
 
     if "message" not in r or r["message"] != "Rate limited! Please wait 5 seconds and try again.":
-        await sio.emit("player_submit", {"message": message_to_room}, room=party_code)
+        await sio.emit("player_submit", {"message": message_to_room, "bold": True, "color": color}, room=party_code)
 
     if all_players_passed(party_code):
         parties[party_code]["status"] = "finished"
