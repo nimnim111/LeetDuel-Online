@@ -1,10 +1,11 @@
 "use client";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import socket from "../socket";
 import { useGame } from "../context/GameContext";
 
-export default function Home() {
+// New inner component that uses useSearchParams
+function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { setProblem, setPartyCode, setUsername } = useGame();
@@ -211,7 +212,6 @@ export default function Home() {
             >
               Leave Game
             </button>
-
             {message && (
               <p className="text-center text-lg text-gray-800 dark:text-gray-200 whitespace-pre-line mt-4">
                 {message}
@@ -231,5 +231,13 @@ export default function Home() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <HomeContent />
+    </Suspense>
   );
 }
