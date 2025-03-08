@@ -13,6 +13,9 @@ const roboto = Roboto({
 export const metadata: Metadata = {
   title: "LeetDuel",
   description: "Code duel against your friends!",
+  icons: {
+    icon: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({

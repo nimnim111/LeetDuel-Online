@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 from .submit import Problem
 from .database import SessionLocal
 from .crud import get_problem
+from .config import port
 
 from src.routes.problems import router as problems_router
 
@@ -225,4 +226,4 @@ async def read_root():
 
 
 if __name__ == "__main__":
-    uvicorn.run("src.main:socket_app", host="0.0.0.0", port=8000)
+    uvicorn.run("src.main:socket_app", host="0.0.0.0", port=port)
