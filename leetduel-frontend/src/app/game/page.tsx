@@ -4,6 +4,7 @@ import { useGame } from "../../context/GameContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import socket from "../../socket";
 import { Fira_Code } from "next/font/google";
+import ReactMarkdown from "react-markdown";
 
 const firaCode = Fira_Code({
   weight: "400",
@@ -279,26 +280,11 @@ function GameContent() {
               <h2 className="text-2xl font-semibold mb-4">
                 Problem Description
               </h2>
-              <p className="text-md">
-                {problem
-                  ? problem.description
-                  : "Loading problem description..."}
-              </p>
-              {problem &&
-                problem.test_cases &&
-                problem.test_cases.slice(0, 3).map((testCase, idx) => (
-                  <div key={idx} className="mt-4 p-2 border rounded">
-                    <p className="font-semibold">Test Case {idx + 1}</p>
-                    <p>
-                      <span className="font-semibold">Input:</span>{" "}
-                      {testCase.input}
-                    </p>
-                    <p>
-                      <span className="font-semibold">Output:</span>{" "}
-                      {testCase.output}
-                    </p>
-                  </div>
-                ))}
+              {problem ? (
+                <ReactMarkdown>{problem.description}</ReactMarkdown>
+              ) : (
+                "Loading problem description..."
+              )}
               <button
                 onClick={runCode}
                 disabled={buttonDisabled}
