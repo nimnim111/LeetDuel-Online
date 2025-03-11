@@ -53,7 +53,7 @@ function HomeContent() {
     });
     socket.on("game_started", (data) => {
       console.log(data);
-      setMessage(`Game started! Problem: ${data.problem.name}`);
+      setMessage(`Loading game...`);
       setProblem(data.problem);
       setPartyCode(data.party_code);
       router.push(
