@@ -243,4 +243,4 @@ async def read_root():
 
 
 if __name__ == "__main__":
-    uvicorn.run("src.main:socket_app", host="0.0.0.0", port=8000)
+    uvicorn.run("src.main:socket_app", host="0.0.0.0", port=port or 8000)
