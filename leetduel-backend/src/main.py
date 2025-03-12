@@ -97,10 +97,17 @@ async def join_party(sid: str, data: dict) -> None:
 
     if party_code in parties and parties[party_code]["status"] == "waiting":
         parties[party_code]["players"].append({"sid": sid, "username": username})
-        await asyncio.sleep(3)
-        await sio.emit("player_joined", {"username": username}, room=party_code)
-        await asyncio.sleep(3)
+        player_usernames = [d["username"] for d in parties[party_code]["players"]]
         await sio.enter_room(sid, party_code)
+        await sio.emit(
+            "player_joined",
+            {
+                "username": username,
+                "players": player_usernames,
+            }, 
+            room=party_code,
+        )
+        print(f"players being added:\n{parties[party_code]["players"]}")
         
     else:
         await sio.emit("error", {"message": "Party not found"}, to=sid)
@@ -111,18 +118,21 @@ async def start_game(sid: str, data: dict) -> None:
     print(f"start_game event received from {sid}: {data}")
     party_code = data["party_code"]
     difficulty = [data["easy"], data["medium"], data["hard"]]
-    time_limit = data["time_limit"]
-
-    if time_limit == "":
-        time_limit = "15"
+    time_limit = data["time_limit"] or "15"
 
     if party_code in parties and parties[party_code]["host"] == sid:
-        problem = get_random_problem(difficulty)
-        parties[party_code]["problem"] = problem
-        parties[party_code]["status"] = "in_progress"
+        try:
+            problem = get_random_problem(difficulty)
+            parties[party_code]["problem"] = problem
+            parties[party_code]["status"] = "in_progress"
 
-        await sio.emit("game_started", {"problem": problem, "party_code": party_code, "time_limit": time_limit}, room=party_code)
-        asyncio.create_task(game_timeout(party_code, time_limit))
+            await sio.emit("game_started", {"problem": problem, "party_code": party_code, "time_limit": time_limit}, room=party_code)
+            asyncio.create_task(game_timeout(party_code, time_limit))
+
+        except Exception as e:
+            print(f"Error in start_game:\n{e}")
+            await sio.emit("error", {"message": "An internal error occurred while retrieving problems."}, to=sid)
+
     else:
         await sio.emit("error", {"message": "You are not the host"}, to=sid)
 
