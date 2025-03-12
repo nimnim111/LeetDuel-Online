@@ -11,15 +11,16 @@ class Problem:
     def __init__(self, language_id: int, problem: dict):
         self.language_id = language_id
         self.problem = problem
-        self.stdinput = json.dumps([json.loads(test_case["input"]) for test_case in problem["test_cases"]])
+        self.stdinput = json.dumps([test_case["input"] for test_case in problem["test_cases"]])
 
 
     def submit_code(self, code: str, timeout: int = 5) -> str:
+        function_name = self.problem["function_signature"].split("(")[0][4:]
         code = "import sys\nimport json\nimport time\n" + code + """
 input_data = sys.stdin.read().strip()
 test_cases = json.loads(input_data)
 start_time = time.time_ns()
-results = [run(*args) for args in test_cases]
+results = [""" + function_name + """(*args) for args in test_cases]
 for result in results:
     print(result)
 print(int((time.time_ns() - start_time) / 1e6))
@@ -43,7 +44,7 @@ print(int((time.time_ns() - start_time) / 1e6))
             return {"message": str(e), "status": "Failed"}
         
 
-    def check_test_cases(self, data: dict) -> dict:
+    def check_test_cases(self, data: str) -> dict:
         test_cases = self.problem["test_cases"]
         if not data:
             return {"message": "No output", "status": "Failed"}
@@ -69,7 +70,7 @@ print(int((time.time_ns() - start_time) / 1e6))
         r["passed test cases"] = count
         
         if failed_index != -1:
-            r["failed_test"] = "Input: " + test_cases[failed_index]["input"] + "\nExpected " + test_cases[failed_index]["output"] + ", got " + data[failed_index]
+            r["failed_test"] = "Input: " + json.dumps(test_cases[failed_index]["input"]) + "\nExpected " + test_cases[failed_index]["output"] + ", got " + data[failed_index]
 
         return r
     

@@ -97,7 +97,9 @@ async def join_party(sid: str, data: dict) -> None:
 
     if party_code in parties and parties[party_code]["status"] == "waiting":
         parties[party_code]["players"].append({"sid": sid, "username": username})
+        await asyncio.sleep(3)
         await sio.emit("player_joined", {"username": username}, room=party_code)
+        await asyncio.sleep(3)
         await sio.enter_room(sid, party_code)
         
     else:
@@ -241,4 +243,4 @@ async def read_root():
 
 
 if __name__ == "__main__":
-    uvicorn.run("src.main:socket_app", host="0.0.0.0", port=port)
+    uvicorn.run("src.main:socket_app", host="0.0.0.0", port=port or 8000)
