@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import socket from "../../socket";
 import { Fira_Code } from "next/font/google";
 import ReactMarkdown from "react-markdown";
+import Editor from "@monaco-editor/react";
 
 const firaCode = Fira_Code({
   weight: "400",
@@ -12,9 +13,21 @@ const firaCode = Fira_Code({
   display: "swap",
 });
 
-// New inner component that uses useSearchParams
+const getDifficultyColor = (difficulty: string) => {
+  switch (difficulty.toLowerCase()) {
+    case "easy":
+      return "text-green-500";
+    case "medium":
+      return "text-orange-400";
+    case "hard":
+      return "text-red-500";
+    default:
+      return "";
+  }
+};
+
 function GameContent() {
-  const [consoleOutput, setConsoleOutput] = useState("Console output");
+  const [consoleOutput, setConsoleOutput] = useState("Test case output");
   const [chatMessages, setChatMessages] = useState([
     { message: "Game started!", bold: true, color: "white" },
   ]);
@@ -25,7 +38,7 @@ function GameContent() {
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const { problem, username } = useGame();
   const router = useRouter();
-  const searchParams = useSearchParams(); // Moved here for suspense
+  const searchParams = useSearchParams();
   const party = searchParams.get("party") || "Unknown";
   const timeLimitParam = searchParams.get("timeLimit");
   const initialTime = timeLimitParam ? parseInt(timeLimitParam, 10) * 60 : 0;
@@ -257,90 +270,66 @@ function GameContent() {
   return (
     <div>
       <div
-        className="min-h-screen bg-gray-100 dark:bg-gray-900 p-6 text-gray-900 dark:text-gray-100"
+        className="min-h-screen bg-gray-100 dark:bg-gray-900 p-6 pr-[18%] text-gray-900 dark:text-gray-100"
         style={{ position: "relative" }}
       >
-        <div className="absolute top-0 left-0 m-4 p-2 bg-white dark:bg-gray-800 rounded shadow text-lg font-bold">
+        <div className="absolute top-0 left-0 m-4 p-2 bg-white dark:bg-gray-800 rounded shadow text-lg">
           {formatTime(timeLeft)}
         </div>
-        <div
-          className="max-w-7xl mx-auto h-[75vh]"
-          style={{ marginRight: "16.6667%" }}
-        >
-          <h1 className="text-4xl font-bold mb-6 text-center">LeetDuel</h1>
-          {problem ? (
-            <p className="text-xl text-center mb-6">
-              Problem: {problem.name} | Difficulty: {problem.difficulty}
-            </p>
-          ) : (
-            <p className="text-xl text-center mb-6">Loading problem...</p>
-          )}
-          <div className="flex flex-col md:flex-row h-full gap-6">
+        <div className="w-full h-[80vh] mx-auto mr-[16.66%]">
+          <h1 className="text-4xl mb-8 text-center">LeetDuel</h1>
+          <div className="flex flex-col md:flex-row h-full gap-2 w-full">
             <div className="relative md:w-1/2 bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-              <h2 className="text-2xl font-semibold mb-4">
-                Problem Description
+              <h2 className="text-2xl font-semibold mb-4">{problem?.name}</h2>
+              <h2 className="text-l font-semibold mb-4">
+                <span
+                  className={`px-2 py-1 rounded bg-gray-700 ${
+                    problem?.difficulty
+                      ? getDifficultyColor(problem.difficulty)
+                      : ""
+                  }`}
+                >
+                  {problem?.difficulty}
+                </span>
               </h2>
               {problem ? (
-                <ReactMarkdown>{problem.description}</ReactMarkdown>
+                <div className="overflow-y-auto max-h-[90%] text-sm leading-relaxed">
+                  <ReactMarkdown>{problem.description}</ReactMarkdown>
+                </div>
               ) : (
                 "Loading problem description..."
               )}
               <button
                 onClick={runCode}
                 disabled={buttonDisabled}
-                className="absolute bottom-4 right-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition"
+                className="absolute bottom-4 right-4 bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg transition"
               >
                 Run Code
               </button>
             </div>
             <div className="md:w-1/2 flex flex-col">
-              {/* Begin code editor*/}
-              <div
-                ref={editorContainerRef}
-                className="relative flex h-[55vh] overflow-auto bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg border border-gray-300 dark:border-gray-600"
-                onScroll={(e) => {
-                  if (lineNumbersRef.current) {
-                    lineNumbersRef.current.scrollTop =
-                      e.currentTarget.scrollTop;
-                  }
-                }}
-              >
-                <div
-                  ref={lineNumbersRef}
-                  className={`${firaCode.className} select-none text-gray-700 p-4 dark:text-gray-300 text-right pr-2 bg-gray-600`}
-                  style={{
-                    minWidth: "3rem",
-                    lineHeight: "1.5rem",
-                    flexShrink: 0,
-                  }}
-                >
-                  {lines.map((_, idx) => (
-                    <div key={idx}>{idx + 1}</div>
-                  ))}
-                </div>
-                <textarea
-                  ref={editorRef}
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  className={`${firaCode.className} flex-1 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 p-4`}
-                  wrap="off"
-                  style={{
-                    overflow: "hidden",
-                    overflowX: "auto",
-                    whiteSpace: "pre",
+              <div className="relative flex h-[60vh] bg-[#1E1E1E] rounded-lg border border-gray-300 dark:border-gray-600 py-2">
+                <Editor
+                  height="100%"
+                  defaultLanguage="python"
+                  defaultValue={code}
+                  onChange={(e) => setCode(e || "")}
+                  theme="vs-dark"
+                  options={{
+                    fontSize: 15,
+                    padding: { top: 16, bottom: 16 },
+                    minimap: { enabled: false },
                   }}
                 />
               </div>
-              {/* End code editor*/}
-              <div className="mt-4 bg-black text-green-400 font-mono p-4 rounded-lg h-[20vh] overflow-auto">
+              <div className="mt-2 bg-black text-green-400 font-mono p-4 rounded-lg h-[20vh] overflow-auto">
                 {consoleOutput}
               </div>
             </div>
           </div>
           <div className="fixed top-0 right-0 h-screen w-1/6">
             <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 h-full flex flex-col">
-              <h2 className="text-xl font-bold mb-4">Party Chat</h2>
+              <h2 className="text-xl mb-4">Party Chat</h2>
               <div
                 ref={chatContainerRef}
                 className="flex-1 overflow-y-auto mb-4 space-y-2"
@@ -368,11 +357,11 @@ function GameContent() {
                     }
                   }}
                   placeholder="Type your message..."
-                  className="flex-1 px-3 py-2 rounded-l-lg border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                  className="flex-1 min-w-0 px-3 py-2 rounded-l-lg border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
                 />
                 <button
                   onClick={sendMessage}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 rounded-r-lg transition"
+                  className="flex-shrink-0 bg-blue-600 hover:bg-blue-700 text-white px-4 rounded-r-lg transition"
                 >
                   Send
                 </button>
@@ -383,7 +372,7 @@ function GameContent() {
         <div className="fixed bottom-0 left-0 m-4">
           <button
             onClick={leaveGame}
-            className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+            className="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded"
           >
             Leave Game
           </button>
@@ -393,7 +382,6 @@ function GameContent() {
   );
 }
 
-// Modify default export to wrap GameContent in a Suspense boundary
 export default function GamePage() {
   return (
     <Suspense fallback={<div>Loading...</div>}>
