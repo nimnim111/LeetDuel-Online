@@ -95,7 +95,7 @@ function GameContent() {
       setChatMessages((prevMessages) => [...prevMessages, data]);
     });
 
-    socket.on("game_over_message", (data) => {
+    socket.on("announcement", (data) => {
       setChatMessages((prevMessages) => [
         ...prevMessages,
         { message: data.message, bold: true, color: "white" },
@@ -110,12 +110,17 @@ function GameContent() {
       );
     });
 
+    socket.on("leave_party", () => {
+      router.push(`/`);
+    });
+
     return () => {
       socket.off("code_submitted");
       socket.off("message_received");
       socket.off("player_submit");
-      socket.off("game_over_message");
+      socket.off("announcement");
       socket.off("game_over");
+      socket.off("leave_party");
     };
   }, [problem, router]);
 
@@ -149,96 +154,6 @@ function GameContent() {
     }
   }, [chatMessages]);
 
-  const lines = code.split("\n");
-
-  const brackets: Record<string, string> = {
-    "{": "}",
-    "(": ")",
-    "[": "]",
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    const charLength = e.currentTarget.value.length;
-    if (
-      charLength > 8000 &&
-      (/^[a-z0-9]$/i.test(e.key) || e.key === "Enter" || e.key === "Tab")
-    ) {
-      e.preventDefault();
-      return;
-    }
-    scrollIfAppendedRef.current =
-      e.currentTarget.selectionStart === code.length;
-    if (e.key === "Tab") {
-      e.preventDefault();
-      const start = e.currentTarget.selectionStart;
-      const end = e.currentTarget.selectionEnd;
-      setCode(code.substring(0, start) + "    " + code.substring(end));
-      setTimeout(() => {
-        if (editorRef.current) {
-          editorRef.current.focus();
-          editorRef.current.setSelectionRange(start + 4, start + 4);
-        }
-      }, 0);
-    }
-    if (["{", "(", "["].includes(e.key)) {
-      e.preventDefault();
-      const start = e.currentTarget.selectionStart;
-      const end = e.currentTarget.selectionEnd;
-      const newCode =
-        code.substring(0, start) +
-        e.key +
-        brackets[e.key] +
-        code.substring(end);
-      setCode(newCode);
-      setTimeout(() => {
-        if (editorRef.current) {
-          editorRef.current.focus();
-          editorRef.current.setSelectionRange(start + 1, start + 1);
-        }
-      }, 0);
-    }
-    if (e.key === "Enter") {
-      e.preventDefault();
-      const target = e.currentTarget;
-      const cursor = target.selectionStart;
-      const lines = target.value.split("\n");
-
-      let charCount = lines[0].length + 1;
-      let indent = 0;
-      let lineLength = 0;
-
-      for (let i = 1; i < lines.length; i++) {
-        lineLength = lines[i].length + 1;
-        if (charCount <= cursor && cursor < charCount + lineLength) {
-          indent = Math.floor(
-            (lines[i].length - lines[i].trimStart().length) / 4
-          );
-          if (lines[i].charAt(lineLength - 2) === ":") {
-            indent++;
-          }
-          lineLength = cursor - charCount + 1;
-          break;
-        }
-        charCount += lineLength;
-      }
-      const start = e.currentTarget.selectionStart;
-      const end = e.currentTarget.selectionEnd;
-      setCode(
-        code.substring(0, start) +
-          "\n" +
-          "    ".repeat(indent) +
-          code.substring(end)
-      );
-      charCount += 4 * indent + lineLength;
-      setTimeout(() => {
-        if (editorRef.current) {
-          editorRef.current.focus();
-          editorRef.current.setSelectionRange(charCount, charCount);
-        }
-      }, 0);
-    }
-  };
-
   const runCode = () => {
     console.log(party);
     console.log(username);
@@ -264,7 +179,6 @@ function GameContent() {
 
   const leaveGame = () => {
     socket.emit("leave_party", { party_code: party, username });
-    router.push(`/`);
   };
 
   return (
