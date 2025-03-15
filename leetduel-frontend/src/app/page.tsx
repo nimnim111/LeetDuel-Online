@@ -7,7 +7,7 @@ import { useGame } from "../context/GameContext";
 enum PartyStatus {
   UNJOINED = "unjoined",
   JOINED = "joined",
-  CREATED = "created"
+  CREATED = "created",
 }
 
 // New inner component that uses useSearchParams
@@ -18,7 +18,9 @@ function HomeContent() {
   const [username, localSetUsername] = useState("");
   const [message, setMessage] = useState("");
   const [members, setMembers] = useState<string[]>([]);
-  const [partyStatus, setPartyStatus] = useState<PartyStatus>(PartyStatus.UNJOINED);
+  const [partyStatus, setPartyStatus] = useState<PartyStatus>(
+    PartyStatus.UNJOINED
+  );
   const [localPartyCode, setLocalPartyCode] = useState("");
   const [timeLimit, setTimeLimit] = useState("");
   const [easy, setEasy] = useState(true);
@@ -119,7 +121,7 @@ function HomeContent() {
 
   const startGame = () => {
     if (isNaN(Number(timeLimit))) {
-      setGoodBanner(false)
+      setGoodBanner(false);
       setMessage("Time limit must be a number.");
       return;
     }
@@ -158,7 +160,13 @@ function HomeContent() {
     <div className="min-h-screen flex items-center justify-center p-6 bg-gray-100 dark:bg-gray-900 transition-colors relative">
       {showBanner && message && (
         <div className="absolute top-0 left-0 w-full flex justify-center p-4 transition-all">
-          <div className={`${goodBanner ? 'bg-blue-200 text-blue-900' : 'bg-red-200 text-red-900'} p-3 rounded shadow-md relative max-w-xl w-full`}>
+          <div
+            className={`${
+              goodBanner
+                ? "bg-blue-200 text-blue-900"
+                : "bg-red-200 text-red-900"
+            } p-3 rounded shadow-md relative max-w-xl w-full`}
+          >
             <button
               onClick={() => {
                 setShowBanner(false);
