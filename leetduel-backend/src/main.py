@@ -60,7 +60,7 @@ def reset_players_passed(party_code: str) -> None:
 async def game_timeout(party_code: str, time_limit: str, problem_name: str) -> None:
     await asyncio.sleep(int(time_limit) * 60)
     if party_code in parties and parties[party_code]["status"] == "in_progress" and problem_name == parties[party_code]["problem"]["name"]:
-        parties[party_code]["status"] = "finished"
+        parties[party_code]["status"] = "waiting"
         reset_players_passed(party_code)
         await sio.emit("announcement", {"message": "Time is up!"}, room=party_code)
         await asyncio.sleep(3)
@@ -95,29 +95,33 @@ async def join_party(sid: str, data: dict) -> None:
     party_code = data["party_code"]
     username = data["username"]
 
-    if party_code in parties and parties[party_code]["status"] == "waiting":
-        parties[party_code]["players"].append({"sid": sid, "username": username})
-        player_usernames = [d["username"] for d in parties[party_code]["players"]]
-        await sio.enter_room(sid, party_code)
-        await sio.emit(
-            "player_joined",
-            {
-                "username": username,
-                "players": player_usernames,
-            }, 
-            room=party_code,
-        )
-        print(f"players being added:\n{parties[party_code]['players']}")
-        
-    else:
+    if party_code not in parties or parties[party_code]["status"] != "waiting":
         await sio.emit("error", {"message": "Party not found"}, to=sid)
+        return
+
+    if len(parties[party_code]["players"]) >= 10:
+        await sio.emit("error", {"message": "Party is full!"}, to=sid)
+        return
+
+    parties[party_code]["players"].append({"sid": sid, "username": username})
+    player_usernames = [d["username"] for d in parties[party_code]["players"]]
+    await sio.enter_room(sid, party_code)
+    await sio.emit(
+        "player_joined",
+        {
+            "username": username,
+            "players": player_usernames,
+        }, 
+        room=party_code,
+    )
+    print(f"players being added:\n{parties[party_code]['players']}")
 
 
 @sio.event
-async def start_game(sid: str, data: dict) -> None:
+async def start_game(sid: str, data: dict, difficulties: list[bool] = []) -> None:
     print(f"start_game event received from {sid}: {data}")
     party_code = data["party_code"]
-    difficulty = [data["easy"], data["medium"], data["hard"]]
+    difficulty = difficulties or [data["easy"], data["medium"], data["hard"]]
     time_limit = data["time_limit"] or "15"
 
     if party_code in parties and parties[party_code]["host"] == sid:
@@ -125,6 +129,8 @@ async def start_game(sid: str, data: dict) -> None:
             problem = get_random_problem(difficulty)
             parties[party_code]["problem"] = problem
             parties[party_code]["status"] = "in_progress"
+            parties[party_code]["difficulties"] = difficulty
+            parties[party_code]["time_limit"] = time_limit
 
             await sio.emit("game_started", {"problem": problem, "party_code": party_code, "time_limit": time_limit}, room=party_code)
             asyncio.create_task(game_timeout(party_code, time_limit, problem["name"]))
@@ -170,7 +176,7 @@ async def submit_code(sid: str, data: dict) -> None:
         await sio.emit("player_submit", {"message": message_to_room, "bold": True, "color": color}, room=party_code)
 
     if all_players_passed(party_code):
-        parties[party_code]["status"] = "finished"
+        parties[party_code]["status"] = "waiting"
         reset_players_passed(party_code)
         await sio.emit("announcement", {"message": "All players passed! Game over."}, room=party_code)
         await asyncio.sleep(3)
@@ -204,6 +210,7 @@ async def leave_party(sid: str, data: dict) -> None:
     
     if parties[party_code]["status"] == "waiting":
         if parties[party_code]["host"] == sid:
+            await sio.leave_room(sid, party_code)
             del parties[party_code]
         else:
             for player in parties[party_code]["players"]:
@@ -239,6 +246,7 @@ async def disconnect(sid: str) -> None:
     print(f"disconnect event received from {sid}")
     for party_code, party in list(parties.items()):
         if party["host"] == sid or not party["players"]:
+            await sio.leave_room(sid, party_code)
             del parties[party_code]
             await sio.emit("announcement", {"message": "Party deleted due to disconnect."}, room=party_code)
 
@@ -248,6 +256,27 @@ async def disconnect(sid: str) -> None:
                 party["players"].remove(player)
                 await sio.leave_room(sid, party_code)
                 break
+
+
+@sio.event
+async def skip_problem(sid: str, data: dict) -> None:
+    party_code = data["party_code"]
+    print(f"skip problem event received from {sid}, party code: {party_code}")
+    if party_code not in parties:
+        return
+    
+    party = parties[party_code]
+
+    if party["host"] != sid:
+        return
+    
+    await sio.emit("announcement", {"message": "Problem is being skipped..."}, room=party_code)
+    await asyncio.sleep(2)
+
+    for player in party["players"]:
+        player["passed"] = False
+
+    await start_game(sid, {"party_code": party_code, "time_limit": party["time_limit"]}, party["difficulties"])
 
 
 @app.get("/")

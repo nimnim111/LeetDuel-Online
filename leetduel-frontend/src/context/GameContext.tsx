@@ -6,7 +6,7 @@ type TestCase = {
   output: string;
 };
 
-type Problem = {
+export type Problem = {
   name: string;
   description: string;
   function_signature: string;

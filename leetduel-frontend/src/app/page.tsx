@@ -10,7 +10,6 @@ enum PartyStatus {
   CREATED = "created",
 }
 
-// New inner component that uses useSearchParams
 function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -66,9 +65,7 @@ function HomeContent() {
       setMembers((prev) => prev.filter((member) => member !== data.username));
     });
     socket.on("game_started", (data) => {
-      console.log(data);
       setGoodBanner(true);
-      setMessage(`Loading game...`);
       setProblem(data.problem);
       setPartyCode(data.party_code);
       router.push(
@@ -115,7 +112,6 @@ function HomeContent() {
   const joinParty = () => {
     if (username && localPartyCode) {
       socket.emit("join_party", { username, party_code: localPartyCode });
-      setPartyStatus(PartyStatus.JOINED);
     }
   };
 
@@ -136,6 +132,7 @@ function HomeContent() {
       return;
     }
     if (localPartyCode) {
+      setMessage(`Loading game...`);
       socket.emit("start_game", {
         party_code: localPartyCode,
         time_limit: timeLimit,
