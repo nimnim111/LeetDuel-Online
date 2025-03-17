@@ -10,7 +10,6 @@ enum PartyStatus {
   CREATED = "created",
 }
 
-// New inner component that uses useSearchParams
 function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -113,7 +112,6 @@ function HomeContent() {
   const joinParty = () => {
     if (username && localPartyCode) {
       socket.emit("join_party", { username, party_code: localPartyCode });
-      setPartyStatus(PartyStatus.JOINED);
     }
   };
 

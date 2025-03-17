@@ -95,22 +95,26 @@ async def join_party(sid: str, data: dict) -> None:
     party_code = data["party_code"]
     username = data["username"]
 
-    if party_code in parties and parties[party_code]["status"] == "waiting":
-        parties[party_code]["players"].append({"sid": sid, "username": username})
-        player_usernames = [d["username"] for d in parties[party_code]["players"]]
-        await sio.enter_room(sid, party_code)
-        await sio.emit(
-            "player_joined",
-            {
-                "username": username,
-                "players": player_usernames,
-            }, 
-            room=party_code,
-        )
-        print(f"players being added:\n{parties[party_code]['players']}")
-        
-    else:
+    if party_code not in parties or parties[party_code]["status"] != "waiting":
         await sio.emit("error", {"message": "Party not found"}, to=sid)
+        return
+
+    if len(parties[party_code]["players"]) >= 10:
+        await sio.emit("error", {"message": "Party is full!"}, to=sid)
+        return
+
+    parties[party_code]["players"].append({"sid": sid, "username": username})
+    player_usernames = [d["username"] for d in parties[party_code]["players"]]
+    await sio.enter_room(sid, party_code)
+    await sio.emit(
+        "player_joined",
+        {
+            "username": username,
+            "players": player_usernames,
+        }, 
+        room=party_code,
+    )
+    print(f"players being added:\n{parties[party_code]['players']}")
 
 
 @sio.event

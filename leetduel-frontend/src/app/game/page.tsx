@@ -118,6 +118,7 @@ function GameContent() {
     socket.on("game_started", (data) => {
       setProblem(data.problem);
       setCode(starterCode(data.problem));
+      setTimeLeft(initialTime);
       router.push(
         `/game?party=${encodeURIComponent(
           data.party_code
@@ -194,12 +195,8 @@ function GameContent() {
     router.push(`/`);
   };
 
-  // Modify skipProblem function to reset the timer 2 seconds after it's pressed
   const skipProblem = () => {
     socket.emit("skip_problem", { party_code: party });
-    setTimeout(() => {
-      setTimeLeft(initialTime);
-    }, 2000);
     console.log("Skip problem clicked");
   };
 
@@ -248,8 +245,7 @@ function GameContent() {
                 <Editor
                   height="100%"
                   defaultLanguage="python"
-                  // Change defaultValue to value to allow external updates:
-                  value={code} // <-- modified line
+                  value={code}
                   onChange={(e) => setCode(e || "")}
                   theme="vs-dark"
                   options={{
