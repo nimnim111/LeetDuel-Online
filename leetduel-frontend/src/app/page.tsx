@@ -66,9 +66,7 @@ function HomeContent() {
       setMembers((prev) => prev.filter((member) => member !== data.username));
     });
     socket.on("game_started", (data) => {
-      console.log(data);
       setGoodBanner(true);
-      setMessage(`Loading game...`);
       setProblem(data.problem);
       setPartyCode(data.party_code);
       router.push(
@@ -136,6 +134,7 @@ function HomeContent() {
       return;
     }
     if (localPartyCode) {
+      setMessage(`Loading game...`);
       socket.emit("start_game", {
         party_code: localPartyCode,
         time_limit: timeLimit,

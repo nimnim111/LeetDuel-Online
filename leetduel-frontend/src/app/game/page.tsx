@@ -1,6 +1,6 @@
 "use client";
 import { useState, useRef, useEffect, Suspense } from "react";
-import { useGame } from "../../context/GameContext";
+import { useGame, Problem } from "../../context/GameContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import socket from "../../socket";
 import { Fira_Code } from "next/font/google";
@@ -26,6 +26,15 @@ const getDifficultyColor = (difficulty: string) => {
   }
 };
 
+const starterCode = (problem: Problem) =>
+  problem
+    ? problem.function_signature +
+      `:` +
+      `
+    # your code here
+    return`
+    : ``;
+
 function GameContent() {
   const [consoleOutput, setConsoleOutput] = useState("Test case output");
   const [chatMessages, setChatMessages] = useState([
@@ -36,7 +45,7 @@ function GameContent() {
   const lineNumbersRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const editorContainerRef = useRef<HTMLDivElement>(null);
-  const { problem, username } = useGame();
+  const { problem, username, setProblem } = useGame();
   const router = useRouter();
   const searchParams = useSearchParams();
   const party = searchParams.get("party") || "Unknown";
@@ -45,15 +54,7 @@ function GameContent() {
   const [timeLeft, setTimeLeft] = useState(initialTime);
   const [buttonDisabled, setButtonDisabled] = useState(false);
 
-  const starterCode = problem
-    ? problem.function_signature +
-      `:` +
-      `
-    # your code here
-    return`
-    : ``;
-
-  const [code, setCode] = useState(starterCode);
+  const [code, setCode] = useState(starterCode(problem));
   const lastCodeRef = useRef(code);
   const scrollIfAppendedRef = useRef(false);
 
@@ -114,6 +115,16 @@ function GameContent() {
       router.push(`/`);
     });
 
+    socket.on("game_started", (data) => {
+      setProblem(data.problem);
+      setCode(starterCode(data.problem));
+      router.push(
+        `/game?party=${encodeURIComponent(
+          data.party_code
+        )}&timeLimit=${encodeURIComponent(data.time_limit)}`
+      );
+    });
+
     return () => {
       socket.off("code_submitted");
       socket.off("message_received");
@@ -121,6 +132,7 @@ function GameContent() {
       socket.off("announcement");
       socket.off("game_over");
       socket.off("leave_party");
+      socket.off("game_started");
     };
   }, [problem, router]);
 
@@ -179,6 +191,16 @@ function GameContent() {
 
   const leaveGame = () => {
     socket.emit("leave_party", { party_code: party, username });
+    router.push(`/`);
+  };
+
+  // Modify skipProblem function to reset the timer 2 seconds after it's pressed
+  const skipProblem = () => {
+    socket.emit("skip_problem", { party_code: party });
+    setTimeout(() => {
+      setTimeLeft(initialTime);
+    }, 2000);
+    console.log("Skip problem clicked");
   };
 
   return (
@@ -226,7 +248,8 @@ function GameContent() {
                 <Editor
                   height="100%"
                   defaultLanguage="python"
-                  defaultValue={code}
+                  // Change defaultValue to value to allow external updates:
+                  value={code} // <-- modified line
                   onChange={(e) => setCode(e || "")}
                   theme="vs-dark"
                   options={{
@@ -283,12 +306,18 @@ function GameContent() {
             </div>
           </div>
         </div>
-        <div className="fixed bottom-0 left-0 m-4">
+        <div className="fixed bottom-0 left-0 m-4 flex gap-2">
           <button
             onClick={leaveGame}
             className="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded"
           >
             Leave Game
+          </button>
+          <button
+            onClick={skipProblem}
+            className="bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded"
+          >
+            Skip Problem
           </button>
         </div>
       </div>
