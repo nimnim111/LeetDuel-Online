@@ -159,10 +159,10 @@ async def submit_code(sid: str, data: dict) -> None:
         message_to_room = data["username"] + " encountered an error."
 
     else:
-        message_to_client = r["status"] + ", " + str(r["passed test cases"]) + "/" + str(r["total test cases"]) + " test cases in " + str(r["time"]) + "ms."
+        message_to_client = f"{r['status']}, {str(r['passed test cases'])}/{str(r['total test cases'])} test cases in {str(r['time'])}ms."
         message_to_room = data["username"] + " passed " + str(r["passed test cases"]) + "/" + str(r["total test cases"]) + " test cases in " + str(r["time"]) + "ms."
         if "failed_test" in r and r["failed_test"] is not None:
-            message_to_client += "\n" + r["failed_test"]
+            message_to_client += "\n" + r["failed_test"] + (f" \nstdout: {r['stdout']}")
 
     if r["status"] == "Accepted":
         color = "green"

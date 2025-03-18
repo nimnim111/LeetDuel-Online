@@ -16,11 +16,18 @@ class Problem:
 
     def submit_code(self, code: str, timeout: int = 5) -> str:
         function_name = self.problem["function_signature"].split("(")[0][4:]
-        code = "import sys\nimport json\nimport time\n" + code + """
+        code = f"""import sys
+import json
+import time
+{code}
 input_data = sys.stdin.read().strip()
 test_cases = json.loads(input_data)
 start_time = time.time_ns()
-results = [""" + function_name + """(*args) for args in test_cases]
+results = []
+for args in test_cases:
+    print("|")
+    results.append({function_name}(*args))
+
 for result in results:
     print(result)
 print(int((time.time_ns() - start_time) / 1e6))
@@ -57,11 +64,17 @@ print(int((time.time_ns() - start_time) / 1e6))
 
         r = {"status": "Accepted", "total test cases": len(test_cases), "time": time}
 
+        n = len(test_cases)
+        output = "\n".join(data[:-n])
+        output_list = output.split("|\n")[1:]
+        data = data[-n:]
+
         for i in range(len(data)):
             if data[i] != test_cases[i]["output"]:
                 r["status"] = "Failed"
                 if failed_index == -1:
                     failed_index = i
+                    r["stdout"] = output_list[i]
 
                 continue
 
@@ -70,7 +83,7 @@ print(int((time.time_ns() - start_time) / 1e6))
         r["passed test cases"] = count
         
         if failed_index != -1:
-            r["failed_test"] = "Input: " + json.dumps(test_cases[failed_index]["input"]) + "\nExpected " + test_cases[failed_index]["output"] + ", got " + data[failed_index]
+            r["failed_test"] = f"Input: {json.dumps(test_cases[failed_index]['input'])}\nExpected {test_cases[failed_index]['output']}, got {data[failed_index]}"
 
         return r
     

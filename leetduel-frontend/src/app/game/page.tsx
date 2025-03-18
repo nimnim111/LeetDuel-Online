@@ -255,7 +255,10 @@ function GameContent() {
                   }}
                 />
               </div>
-              <div className="mt-2 bg-black text-green-400 font-mono p-4 rounded-lg h-[20vh] overflow-auto">
+              <div
+                className="mt-2 bg-black text-green-400 font-mono p-4 rounded-lg h-[20vh] overflow-auto"
+                style={{ whiteSpace: "pre-wrap" }} // added styling to preserve newlines
+              >
                 {consoleOutput}
               </div>
             </div>
