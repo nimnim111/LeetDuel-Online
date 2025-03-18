@@ -242,7 +242,6 @@ async def leave_party(sid: str, data: dict) -> None:
 
 @sio.event
 async def disconnect(sid: str) -> None:
-    # Handle player disconnection by removing from parties
     print(f"disconnect event received from {sid}")
     for party_code, party in list(parties.items()):
         if party["host"] == sid or not party["players"]:

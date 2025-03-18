@@ -38,7 +38,7 @@ const starterCode = (problem: Problem) =>
 function GameContent() {
   const [consoleOutput, setConsoleOutput] = useState("Test case output");
   const [chatMessages, setChatMessages] = useState([
-    { message: "Game started!", bold: true, color: "white" },
+    { message: "Game started!", bold: true, color: "" },
   ]);
   const [chatInput, setChatInput] = useState("");
   const editorRef = useRef<HTMLTextAreaElement>(null);
@@ -87,7 +87,7 @@ function GameContent() {
         {
           message: `${data.username}: ${data.message}`,
           bold: false,
-          color: "white",
+          color: "",
         },
       ]);
     });
@@ -99,7 +99,7 @@ function GameContent() {
     socket.on("announcement", (data) => {
       setChatMessages((prevMessages) => [
         ...prevMessages,
-        { message: data.message, bold: true, color: "white" },
+        { message: data.message, bold: true, color: "" },
       ]);
     });
 
@@ -257,7 +257,7 @@ function GameContent() {
               </div>
               <div
                 className="mt-2 bg-black text-green-400 font-mono p-4 rounded-lg h-[20vh] overflow-auto"
-                style={{ whiteSpace: "pre-wrap" }} // added styling to preserve newlines
+                style={{ whiteSpace: "pre-wrap" }}
               >
                 {consoleOutput}
               </div>
@@ -275,8 +275,8 @@ function GameContent() {
                     key={idx}
                     className={`text-sm font-mono ${
                       msg.bold ? "font-bold" : ""
-                    }`}
-                    style={{ color: msg.color, filter: "brightness(3)" }}
+                    } ${!msg.color ? "text-gray-900 dark:text-gray-100" : ""}`}
+                    style={msg.color ? { color: msg.color } : {}}
                   >
                     {msg.message}
                   </div>
