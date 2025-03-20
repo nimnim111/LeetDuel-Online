@@ -26,7 +26,7 @@ start_time = time.time_ns()
 results = []
 for args in test_cases:
     print("|")
-    results.append({function_name}(*args))
+    results.append({function_name}(*eval(args)))
 
 for result in results:
     print(result)
@@ -53,6 +53,7 @@ print(int((time.time_ns() - start_time) / 1e6))
 
     def check_test_cases(self, data: str) -> dict:
         test_cases = self.problem["test_cases"]
+
         if not data:
             return {"message": "No output", "status": "Failed"}
 
@@ -70,6 +71,7 @@ print(int((time.time_ns() - start_time) / 1e6))
         data = data[-n:]
 
         for i in range(len(data)):
+
             if data[i] != test_cases[i]["output"]:
                 r["status"] = "Failed"
                 if failed_index == -1:
