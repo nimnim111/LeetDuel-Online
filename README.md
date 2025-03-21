@@ -1,4 +1,4 @@
-**LeetDuel**
+# LeetDuel
 
 ## Local Backend
 
@@ -27,7 +27,7 @@ If you see any module not found errors, your virtual env's version of uvicorn ma
 The frontend uses socket events to coordinate between players in the same room. This socket server is the backend server, but is set as an env variable. To set it, create a `.env.local` file in `leetduel-frontend` with:
 
 ```
-NEXT_PUBLIC_SERVER_URL=http://localhost:8000
+NEXT_PUBLIC_SERVER_URL="http://localhost:8000"
 ```
 
 To run the frontend server, cd into leetduel-frontend and run:
