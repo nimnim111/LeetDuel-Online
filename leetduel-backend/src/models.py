@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Column, Integer, String, ForeignKey, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.dialects.postgresql import JSONB
 
@@ -12,6 +12,7 @@ class Problem(Base):
     problem_difficulty = Column(String)
     test_cases = Column(JSONB)
     function_signature = Column(String)
+    any_order = Column(Boolean)
 
 class Party(Base):
     __tablename__ = "parties"

@@ -35,7 +35,7 @@ def get_random_problem(difficulty: list[bool], problem_id: int = None) -> dict:
 
     try:
         problem = get_problem(db, difficulty, problem_id)
-        return {"name": problem.problem_name, "description": problem.problem_description, "difficulty": problem.problem_difficulty, "test_cases": problem.test_cases, "function_signature": problem.function_signature}
+        return {"name": problem.problem_name, "description": problem.problem_description, "difficulty": problem.problem_difficulty, "test_cases": problem.test_cases, "function_signature": problem.function_signature, "any_order": problem.any_order}
     
     finally:
         db.close()

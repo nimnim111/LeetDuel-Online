@@ -20,8 +20,8 @@ def get_problem(db: Session, difficulties: list[bool], problem_id: int = None) -
 def get_count(db: Session):
     return db.query(Problem).count()
 
-def create_problem(db: Session, title: str, description: str, difficulty: str, test_cases: list, function_signature: str):
-    db_problem = Problem(problem_name=title, problem_description=description, problem_difficulty=difficulty, test_cases=test_cases, function_signature=function_signature)  
+def create_problem(db: Session, title: str, description: str, difficulty: str, test_cases: list, function_signature: str, any_order: bool):
+    db_problem = Problem(problem_name=title, problem_description=description, problem_difficulty=difficulty, test_cases=test_cases, function_signature=function_signature, any_order=any_order)  
     db.add(db_problem)
     db.commit()
     db.refresh(db_problem)

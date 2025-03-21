@@ -53,6 +53,7 @@ print(int((time.time_ns() - start_time) / 1e6))
 
     def check_test_cases(self, data: str) -> dict:
         test_cases = self.problem["test_cases"]
+        any_order = self.problem["any_order"]
 
         if not data:
             return {"message": "No output", "status": "Failed"}
@@ -72,7 +73,14 @@ print(int((time.time_ns() - start_time) / 1e6))
 
         for i in range(len(data)):
 
-            if data[i] != test_cases[i]["output"]:
+            user_output = data[i]
+            test_output = test_cases[i]["output"]
+
+            if any_order and isinstance(user_output, list) and isinstance(test_output, list):
+                user_output.sort()
+                test_output.sort()
+
+            if user_output != test_output:
                 r["status"] = "Failed"
                 if failed_index == -1:
                     failed_index = i
@@ -85,7 +93,7 @@ print(int((time.time_ns() - start_time) / 1e6))
         r["passed test cases"] = count
         
         if failed_index != -1:
-            r["failed_test"] = f"Input: {json.dumps(test_cases[failed_index]['input'])}\nExpected {test_cases[failed_index]['output']}, got {data[failed_index]}"
+            r["failed_test"] = f"Input: {json.dumps(eval(test_cases[failed_index]['input']))}\nExpected {test_cases[failed_index]['output']}, got {data[failed_index]}"
 
         return r
     
