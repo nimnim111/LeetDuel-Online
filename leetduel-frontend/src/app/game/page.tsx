@@ -3,15 +3,8 @@ import { useState, useRef, useEffect, Suspense } from "react";
 import { useGame, Problem } from "../../context/GameContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import socket from "../../socket";
-import { Fira_Code } from "next/font/google";
-import ReactMarkdown from "react-markdown";
 import Editor from "@monaco-editor/react";
-
-const firaCode = Fira_Code({
-  weight: "400",
-  subsets: ["latin"],
-  display: "swap",
-});
+import parse from "html-react-parser";
 
 const getDifficultyColor = (difficulty: string) => {
   switch (difficulty.toLowerCase()) {
@@ -226,8 +219,8 @@ function GameContent() {
                 </span>
               </h2>
               {problem ? (
-                <div className="overflow-y-auto max-h-[90%] text-sm leading-relaxed">
-                  <ReactMarkdown>{problem.description}</ReactMarkdown>
+                <div className="overflow-y-auto max-h-[90%] text-sm leading-relaxed whitespace-normal">
+                  {parse(problem.description)}
                 </div>
               ) : (
                 "Loading problem description..."

@@ -14,7 +14,7 @@ class Problem:
         self.stdinput = json.dumps([test_case["input"] for test_case in problem["test_cases"]])
 
 
-    def submit_code(self, code: str, timeout: int = 5) -> str:
+    def submit_code(self, code: str, timeout: int = 2) -> dict:
         function_name = self.problem["function_signature"].split("(")[0][4:]
         code = f"""import sys
 import json
@@ -26,7 +26,7 @@ start_time = time.time_ns()
 results = []
 for args in test_cases:
     print("|")
-    results.append({function_name}(*args))
+    results.append({function_name}(*eval(args)))
 
 for result in results:
     print(result)
@@ -53,6 +53,8 @@ print(int((time.time_ns() - start_time) / 1e6))
 
     def check_test_cases(self, data: str) -> dict:
         test_cases = self.problem["test_cases"]
+        any_order = self.problem["any_order"]
+
         if not data:
             return {"message": "No output", "status": "Failed"}
 
@@ -70,7 +72,22 @@ print(int((time.time_ns() - start_time) / 1e6))
         data = data[-n:]
 
         for i in range(len(data)):
-            if data[i] != test_cases[i]["output"]:
+
+            user_output = data[i]
+            test_output = test_cases[i]["output"]
+
+            try:
+                if any_order and isinstance(eval(user_output), list) and isinstance(eval(test_output), list):
+                    user_output = eval(user_output)
+                    test_output = eval(test_output)
+
+                    user_output.sort()
+                    test_output.sort()
+
+            except Exception as e:
+                print(e)
+
+            if user_output != test_output:
                 r["status"] = "Failed"
                 if failed_index == -1:
                     failed_index = i
@@ -83,7 +100,7 @@ print(int((time.time_ns() - start_time) / 1e6))
         r["passed test cases"] = count
         
         if failed_index != -1:
-            r["failed_test"] = f"Input: {json.dumps(test_cases[failed_index]['input'])}\nExpected {test_cases[failed_index]['output']}, got {data[failed_index]}"
+            r["failed_test"] = f"Input: {json.dumps(eval(test_cases[failed_index]['input']))}\nExpected {test_cases[failed_index]['output']}, got {data[failed_index]}"
 
         return r
     
