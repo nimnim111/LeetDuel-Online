@@ -14,7 +14,7 @@ class Problem:
         self.stdinput = json.dumps([test_case["input"] for test_case in problem["test_cases"]])
 
 
-    def submit_code(self, code: str, timeout: int = 5) -> str:
+    def submit_code(self, code: str, timeout: int = 2) -> dict:
         function_name = self.problem["function_signature"].split("(")[0][4:]
         code = f"""import sys
 import json
@@ -76,9 +76,16 @@ print(int((time.time_ns() - start_time) / 1e6))
             user_output = data[i]
             test_output = test_cases[i]["output"]
 
-            if any_order and isinstance(user_output, list) and isinstance(test_output, list):
-                user_output.sort()
-                test_output.sort()
+            try:
+                if any_order and isinstance(eval(user_output), list) and isinstance(eval(test_output), list):
+                    user_output = eval(user_output)
+                    test_output = eval(test_output)
+
+                    user_output.sort()
+                    test_output.sort()
+
+            except Exception as e:
+                print(e)
 
             if user_output != test_output:
                 r["status"] = "Failed"

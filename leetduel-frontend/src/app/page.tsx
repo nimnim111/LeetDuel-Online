@@ -75,6 +75,9 @@ function HomeContent() {
       );
     });
     socket.on("error", (data) => {
+      if (data.message === "Party not found") {
+        setPartyStatus(PartyStatus.UNJOINED);
+      }
       setGoodBanner(false);
       setMessage(`Error: ${data.message}`);
     });

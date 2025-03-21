@@ -124,7 +124,11 @@ async def start_game(sid: str, data: dict, difficulties: list[bool] = []) -> Non
     difficulty = difficulties or [data["easy"], data["medium"], data["hard"]]
     time_limit = data["time_limit"] or "15"
 
-    if party_code in parties and parties[party_code]["host"] == sid:
+    if party_code not in parties:
+        await sio.emit("error", {"message": "Party not found"}, to=sid)
+        return
+
+    if parties[party_code]["host"] == sid:
         try:
             problem = get_random_problem(difficulty)
             parties[party_code]["problem"] = problem
@@ -147,6 +151,11 @@ async def start_game(sid: str, data: dict, difficulties: list[bool] = []) -> Non
 async def submit_code(sid: str, data: dict) -> None:
     print(f"submit_code event received from {sid}: {data}")
     party_code = data["party_code"]
+
+    if party_code not in parties:
+        await sio.emit("leave_party", to=sid)
+        return
+
     code = data["code"]
     problem_obj = parties[party_code]["problem"]
     problem = Problem(language_id, problem_obj)
@@ -160,7 +169,7 @@ async def submit_code(sid: str, data: dict) -> None:
 
     else:
         message_to_client = f"{r['status']}, {str(r['passed test cases'])}/{str(r['total test cases'])} test cases in {str(r['time'])}ms."
-        message_to_room = data["username"] + " passed " + str(r["passed test cases"]) + "/" + str(r["total test cases"]) + " test cases in " + str(r["time"]) + "ms."
+        message_to_room = f"{data['username']} passed {str(r['passed test cases'])}/{str(r['total test cases'])} test cases in {str(r['time'])}ms."
         if "failed_test" in r and r["failed_test"] is not None:
             message_to_client += "\n" + r["failed_test"] + (f" \nstdout: {r['stdout']}")
 

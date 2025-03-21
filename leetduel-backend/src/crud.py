@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 from .models import Problem
 import random
 
+
 def get_problem(db: Session, difficulties: list[bool], problem_id: int = None) -> Problem:
     if problem_id is not None:
         return db.query(Problem).filter(Problem.problem_id == problem_id).first()
@@ -17,8 +18,10 @@ def get_problem(db: Session, difficulties: list[bool], problem_id: int = None) -
         return None
     return random.choice(problems)
 
+
 def get_count(db: Session):
     return db.query(Problem).count()
+
 
 def create_problem(db: Session, title: str, description: str, difficulty: str, test_cases: list, function_signature: str, any_order: bool):
     db_problem = Problem(problem_name=title, problem_description=description, problem_difficulty=difficulty, test_cases=test_cases, function_signature=function_signature, any_order=any_order)  
@@ -26,3 +29,7 @@ def create_problem(db: Session, title: str, description: str, difficulty: str, t
     db.commit()
     db.refresh(db_problem)
     return db_problem
+
+
+def check_problem_exists(db: Session, title: str) -> bool:
+    return db.query(Problem).filter(Problem.problem_name == title).first() is not None
