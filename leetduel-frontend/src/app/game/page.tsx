@@ -111,6 +111,7 @@ function GameContent() {
     socket.on("game_started", (data) => {
       setProblem(data.problem);
       setCode(starterCode(data.problem));
+      setConsoleOutput("Test case output");
       setTimeLeft(initialTime);
       router.push(
         `/game?party=${encodeURIComponent(

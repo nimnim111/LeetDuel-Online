@@ -31,7 +31,7 @@ function HomeContent() {
   useEffect(() => {
     const qpParty = searchParams.get("party");
     const qpUsername = searchParams.get("username");
-    if (qpParty) {
+    if (qpParty && partyStatus === PartyStatus.UNJOINED) {
       setLocalPartyCode(qpParty);
       setPartyCode(qpParty);
       setPartyStatus(PartyStatus.JOINED);
@@ -81,6 +81,9 @@ function HomeContent() {
       setGoodBanner(false);
       setMessage(`Error: ${data.message}`);
     });
+    socket.on("activate_settings", () => {
+      setPartyStatus(PartyStatus.CREATED);
+    });
     return () => {
       socket.off("party_created");
       socket.off("player_joined");
@@ -104,6 +107,12 @@ function HomeContent() {
       console.log("Party status: ", partyStatus);
     }
   }, [partyStatus, setPartyStatus]);
+
+  useEffect(() => {
+    if (localPartyCode) {
+      socket.emit("player_opened", { party_code: localPartyCode });
+    }
+  }, [localPartyCode]);
 
   const createParty = () => {
     if (username) {
