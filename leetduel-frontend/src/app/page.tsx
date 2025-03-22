@@ -90,6 +90,7 @@ function HomeContent() {
       socket.off("player_left");
       socket.off("game_started");
       socket.off("error");
+      socket.off("activate_settings");
     };
   }, [router, setProblem, setPartyCode, setUsername, username, message]);
 
