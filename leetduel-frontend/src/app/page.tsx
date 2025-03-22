@@ -31,7 +31,7 @@ function HomeContent() {
   useEffect(() => {
     const qpParty = searchParams.get("party");
     const qpUsername = searchParams.get("username");
-    if (qpParty) {
+    if (qpParty && partyStatus === PartyStatus.UNJOINED) {
       setLocalPartyCode(qpParty);
       setPartyCode(qpParty);
       setPartyStatus(PartyStatus.JOINED);
@@ -55,9 +55,9 @@ function HomeContent() {
     socket.on("player_joined", (data) => {
       setGoodBanner(true);
       setMessage(`${message}\n${data.username} joined`);
-      if (partyStatus !== PartyStatus.CREATED) {
-        setPartyStatus(PartyStatus.JOINED);
-      }
+      setPartyStatus((prev) =>
+        prev === PartyStatus.CREATED ? prev : PartyStatus.JOINED
+      );
       setUsername(username);
       setMembers(data.players);
     });
@@ -81,12 +81,16 @@ function HomeContent() {
       setGoodBanner(false);
       setMessage(`Error: ${data.message}`);
     });
+    socket.on("activate_settings", () => {
+      setPartyStatus(PartyStatus.CREATED);
+    });
     return () => {
       socket.off("party_created");
       socket.off("player_joined");
       socket.off("player_left");
       socket.off("game_started");
       socket.off("error");
+      socket.off("activate_settings");
     };
   }, [router, setProblem, setPartyCode, setUsername, username, message]);
 
@@ -104,6 +108,12 @@ function HomeContent() {
       console.log("Party status: ", partyStatus);
     }
   }, [partyStatus, setPartyStatus]);
+
+  useEffect(() => {
+    if (localPartyCode) {
+      socket.emit("player_opened", { party_code: localPartyCode });
+    }
+  }, [localPartyCode]);
 
   const createParty = () => {
     if (username) {
@@ -182,7 +192,7 @@ function HomeContent() {
       )}
       <div className="bg-white dark:bg-gray-800 shadow-lg rounded-xl p-8 w-full max-w-md font-inter">
         <h1 className="text-3xl text-gray-900 dark:text-white mb-6 text-center">
-          LeetDuel
+          Leetduel
         </h1>
         <div className="space-y-4 mb-6">
           <input

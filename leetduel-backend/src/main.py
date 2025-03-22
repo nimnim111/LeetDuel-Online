@@ -193,6 +193,14 @@ async def submit_code(sid: str, data: dict) -> None:
 
 
 @sio.event
+async def player_opened(sid: str, data: dict) -> None:
+    print(f"player_opened event received from {sid}: {data}")
+    party_code = data["party_code"]
+    if party_code in parties and sid == parties[party_code]["host"]:
+        await sio.emit("activate_settings", to=sid)
+
+
+@sio.event
 async def chat_message(sid: str, data: dict) -> None:
     try:
         rate_limiter()
