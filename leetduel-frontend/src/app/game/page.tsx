@@ -51,6 +51,18 @@ function GameContent() {
   const lastCodeRef = useRef(code);
   const scrollIfAppendedRef = useRef(false);
 
+  // Add dark mode detection state and effect
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+      setIsDarkMode(mediaQuery.matches);
+      const handler = (e: MediaQueryListEvent) => setIsDarkMode(e.matches);
+      mediaQuery.addEventListener("change", handler);
+      return () => mediaQuery.removeEventListener("change", handler);
+    }
+  }, []);
+
   useEffect(() => {
     if (initialTime <= 0) return;
     const interval = setInterval(() => {
@@ -204,13 +216,13 @@ function GameContent() {
           {formatTime(timeLeft)}
         </div>
         <div className="w-full h-[80vh] mx-auto mr-[16.66%]">
-          <h1 className="text-4xl mb-8 text-center">LeetDuel</h1>
+          <h1 className="text-4xl mb-8 text-center">Leetduel</h1>
           <div className="flex flex-col md:flex-row h-full gap-2 w-full">
             <div className="relative md:w-1/2 bg-white dark:bg-gray-800 shadow rounded-lg p-6">
               <h2 className="text-2xl font-semibold mb-4">{problem?.name}</h2>
               <h2 className="text-l font-semibold mb-4">
                 <span
-                  className={`px-2 py-1 rounded bg-gray-700 ${
+                  className={`px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 ${
                     problem?.difficulty
                       ? getDifficultyColor(problem.difficulty)
                       : ""
@@ -235,13 +247,13 @@ function GameContent() {
               </button>
             </div>
             <div className="md:w-1/2 flex flex-col">
-              <div className="relative flex h-[60vh] bg-[#1E1E1E] rounded-lg border border-gray-300 dark:border-gray-600 py-2">
+              <div className="relative flex h-[60vh] bg-white dark:bg-[#1E1E1E] rounded-lg border border-gray-300 dark:border-gray-600 py-2">
                 <Editor
                   height="100%"
                   defaultLanguage="python"
                   value={code}
                   onChange={(e) => setCode(e || "")}
-                  theme="vs-dark"
+                  theme={isDarkMode ? "vs-dark" : "light"}
                   options={{
                     fontSize: 15,
                     padding: { top: 16, bottom: 16 },
@@ -250,7 +262,7 @@ function GameContent() {
                 />
               </div>
               <div
-                className="mt-2 bg-black text-green-400 font-mono p-4 rounded-lg h-[20vh] overflow-auto"
+                className="mt-2 bg-white dark:bg-black text-black dark:text-green-400 font-mono p-4 rounded-lg h-[20vh] overflow-auto"
                 style={{ whiteSpace: "pre-wrap" }}
               >
                 {consoleOutput}

@@ -55,9 +55,9 @@ function HomeContent() {
     socket.on("player_joined", (data) => {
       setGoodBanner(true);
       setMessage(`${message}\n${data.username} joined`);
-      if (partyStatus !== PartyStatus.CREATED) {
-        setPartyStatus(PartyStatus.JOINED);
-      }
+      setPartyStatus((prev) =>
+        prev === PartyStatus.CREATED ? prev : PartyStatus.JOINED
+      );
       setUsername(username);
       setMembers(data.players);
     });
@@ -192,7 +192,7 @@ function HomeContent() {
       )}
       <div className="bg-white dark:bg-gray-800 shadow-lg rounded-xl p-8 w-full max-w-md font-inter">
         <h1 className="text-3xl text-gray-900 dark:text-white mb-6 text-center">
-          LeetDuel
+          Leetduel
         </h1>
         <div className="space-y-4 mb-6">
           <input
