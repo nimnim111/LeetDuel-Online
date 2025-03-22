@@ -45,3 +45,6 @@ yarn-error.log*
 next-env.d.ts
 
 problems.sql
+
+.pytest_cache
+.vscode
