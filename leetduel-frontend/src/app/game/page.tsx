@@ -1,7 +1,8 @@
 "use client";
 import { useState, useRef, useEffect, Suspense } from "react";
-import { useGame, Problem } from "../../context/GameContext";
+import { useGame } from "../../context/GameContext";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Problem, MessageData, GameData } from "../../types";
 import socket from "../../socket";
 import Editor from "@monaco-editor/react";
 import parse from "html-react-parser";
@@ -81,12 +82,12 @@ function GameContent() {
     if (!problem) {
       router.push("/");
     }
-    socket.on("code_submitted", (data) => {
+    socket.on("code_submitted", (data: MessageData) => {
       setConsoleOutput(data.message);
       setButtonDisabled(false);
     });
 
-    socket.on("message_received", (data) => {
+    socket.on("message_received", (data: MessageData) => {
       setChatMessages((prevMessages) => [
         ...prevMessages,
         {
@@ -97,11 +98,11 @@ function GameContent() {
       ]);
     });
 
-    socket.on("player_submit", (data) => {
+    socket.on("player_submit", (data: MessageData) => {
       setChatMessages((prevMessages) => [...prevMessages, data]);
     });
 
-    socket.on("announcement", (data) => {
+    socket.on("announcement", (data: MessageData) => {
       setChatMessages((prevMessages) => [
         ...prevMessages,
         { message: data.message, bold: true, color: "" },
@@ -120,7 +121,7 @@ function GameContent() {
       router.push(`/`);
     });
 
-    socket.on("game_started", (data) => {
+    socket.on("game_started", (data: GameData) => {
       setProblem(data.problem);
       setCode(starterCode(data.problem));
       setConsoleOutput("Test case output");
