@@ -1,27 +1,6 @@
 "use client";
 import React, { createContext, useContext, useState, ReactNode } from "react";
-
-type TestCase = {
-  input: string;
-  output: string;
-};
-
-export type Problem = {
-  name: string;
-  description: string;
-  function_signature: string;
-  difficulty: string;
-  test_cases: TestCase[];
-} | null;
-
-type GameContextType = {
-  problem: Problem;
-  setProblem: (problem: Problem) => void;
-  partyCode: string;
-  setPartyCode: (code: string) => void;
-  username: string;
-  setUsername: (username: string) => void;
-};
+import { Problem, GameContextType } from "../types";
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
 

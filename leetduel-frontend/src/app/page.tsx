@@ -3,6 +3,7 @@ import React, { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import socket from "../socket";
 import { useGame } from "../context/GameContext";
+import { PlayerData, GameData, ErrorData } from "../types";
 
 enum PartyStatus {
   UNJOINED = "unjoined",
@@ -43,16 +44,27 @@ function HomeContent() {
   }, [searchParams, setPartyCode]);
 
   useEffect(() => {
-    socket.on("party_created", (data) => {
+    socket.on("party_created", (data: PlayerData) => {
+      // Ensure party_code is defined
+      if (!data.party_code) {
+        setGoodBanner(false);
+        setMessage("Party creation error");
+        return;
+      }
       setGoodBanner(true);
       setMessage(`Party created with code: ${data.party_code}`);
       setLocalPartyCode(data.party_code);
       setPartyCode(data.party_code);
       setPartyStatus(PartyStatus.CREATED);
       setUsername(username);
-      setMembers(data.members ? data.members : [data.username]);
+      setMembers([data.username]);
     });
-    socket.on("player_joined", (data) => {
+    socket.on("player_joined", (data: PlayerData) => {
+      if (!data.players) {
+        setGoodBanner(false);
+        setMessage("Party join error");
+        return;
+      }
       setGoodBanner(true);
       setMessage(`${message}\n${data.username} joined`);
       setPartyStatus((prev) =>
@@ -61,10 +73,10 @@ function HomeContent() {
       setUsername(username);
       setMembers(data.players);
     });
-    socket.on("player_left", (data) => {
+    socket.on("player_left", (data: PlayerData) => {
       setMembers((prev) => prev.filter((member) => member !== data.username));
     });
-    socket.on("game_started", (data) => {
+    socket.on("game_started", (data: GameData) => {
       setGoodBanner(true);
       setProblem(data.problem);
       setPartyCode(data.party_code);
@@ -74,7 +86,7 @@ function HomeContent() {
         )}&timeLimit=${encodeURIComponent(data.time_limit)}`
       );
     });
-    socket.on("error", (data) => {
+    socket.on("error", (data: ErrorData) => {
       if (data.message === "Party not found") {
         setPartyStatus(PartyStatus.UNJOINED);
       }
