@@ -216,7 +216,7 @@ function GameContent() {
         <div className="absolute top-0 left-0 m-4 p-2 bg-white dark:bg-gray-800 rounded shadow text-lg">
           {formatTime(timeLeft)}
         </div>
-        <div className="w-full h-[80vh] mx-auto mr-[16.66%]">
+        <div className="w-full h-[75vh] mx-auto mr-[16.66%]">
           <h1 className="text-4xl mb-8 text-center">Leetduel</h1>
           <div className="flex flex-col md:flex-row h-full gap-2 w-full">
             <div className="relative md:w-1/2 bg-white dark:bg-gray-800 shadow rounded-lg p-6">
@@ -233,7 +233,7 @@ function GameContent() {
                 </span>
               </h2>
               {problem ? (
-                <div className="overflow-y-auto max-h-[90%] text-sm leading-relaxed whitespace-normal">
+                <div className="overflow-y-auto max-h-[80%] text-sm leading-relaxed whitespace-normal">
                   {parse(problem.description)}
                 </div>
               ) : (
@@ -248,7 +248,7 @@ function GameContent() {
               </button>
             </div>
             <div className="md:w-1/2 flex flex-col">
-              <div className="relative flex h-[60vh] bg-white dark:bg-[#1E1E1E] rounded-lg border border-gray-300 dark:border-gray-600 py-2">
+              <div className="relative flex h-[55vh] bg-white dark:bg-[#1E1E1E] rounded-lg border border-gray-300 dark:border-gray-600 py-2">
                 <Editor
                   height="100%"
                   defaultLanguage="python"
@@ -259,6 +259,7 @@ function GameContent() {
                     fontSize: 15,
                     padding: { top: 16, bottom: 16 },
                     minimap: { enabled: false },
+                    folding: false,
                   }}
                 />
               </div>
