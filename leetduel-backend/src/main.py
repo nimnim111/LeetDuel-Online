@@ -287,6 +287,7 @@ async def disconnect(sid: str) -> None:
         for player in party["players"]:
             if player["sid"] == sid:
                 await sio.emit("announcement", {"message": f"{player['username']} has left the party."}, room=party_code)
+                await sio.emit("player_left", {"username": player["username"]}, room=party_code)
                 party["players"].remove(player)
                 await sio.leave_room(sid, party_code)
                 break
