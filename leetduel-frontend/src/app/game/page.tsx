@@ -48,9 +48,15 @@ function GameContent() {
   const [buttonDisabled, setButtonDisabled] = useState(false);
 
   const [code, setCode] = useState(starterCode(problem));
+  // Add new state for debounce timer
+  const [codeUpdateTimer, setCodeUpdateTimer] = useState<NodeJS.Timeout | null>(
+    null
+  );
   const lastCodeRef = useRef(code);
   const scrollIfAppendedRef = useRef(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
+
+  const keyCounterRef = useRef(0);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -216,6 +222,29 @@ function GameContent() {
     console.log("Skip problem clicked");
   };
 
+  const handleCodeChange = (e: string | undefined) => {
+    const newCode = e || "";
+    setCode(newCode);
+    keyCounterRef.current++;
+    if (codeUpdateTimer) {
+      clearTimeout(codeUpdateTimer);
+    }
+    if (keyCounterRef.current >= 5) {
+      updateCode(newCode);
+      return;
+    }
+    setCodeUpdateTimer(
+      setTimeout(() => {
+        updateCode(newCode);
+      }, 2000)
+    );
+  };
+
+  const updateCode = (updatedCode: string) => {
+    socket.emit("code_update", { party_code: party, code: updatedCode });
+    keyCounterRef.current = 0;
+  };
+
   return (
     <div>
       <div
@@ -262,7 +291,7 @@ function GameContent() {
                   height="100%"
                   defaultLanguage="python"
                   value={code}
-                  onChange={(e) => setCode(e || "")}
+                  onChange={handleCodeChange}
                   theme={isDarkMode ? "vs-dark" : "light"}
                   options={{
                     fontSize: 15,

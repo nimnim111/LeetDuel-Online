@@ -321,6 +321,20 @@ async def retrieve_time(sid: str, data: dict) -> None:
     print(f"retrieve_time event received from {sid}, time left: {time_left}")
     await sio.emit("update_time", {"time_left": time_left}, to=sid)
 
+
+@sio.event
+async def code_update(sid: str, data: dict) -> None:
+    print(f"code_update event received from {sid}, code: {data['code']}")
+    party_code = data["party_code"]
+    new_code = data["code"]
+
+    if party_code not in parties:
+        return
+    
+    for player in parties[party_code]["players"]:
+        if player["sid"] == sid:
+            player["code"] = new_code
+
 @app.get("/")
 async def read_root():
     return JSONResponse({"message": "Server is running"})
