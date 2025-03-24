@@ -196,8 +196,15 @@ async def submit_code(sid: str, data: dict) -> None:
 async def player_opened(sid: str, data: dict) -> None:
     print(f"player_opened event received from {sid}: {data}")
     party_code = data["party_code"]
-    if party_code in parties and sid == parties[party_code]["host"]:
+    if party_code not in parties:
+        return
+    
+    if sid == parties[party_code]["host"]:
         await sio.emit("activate_settings", to=sid)
+
+    player_usernames = [d["username"] for d in parties[party_code]["players"]]
+
+    await sio.emit("players_update", {"players": player_usernames}, room=party_code)
 
 
 @sio.event
