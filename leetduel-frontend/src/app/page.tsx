@@ -39,13 +39,11 @@ function HomeContent() {
       if (qpUsername) {
         localSetUsername(qpUsername);
       }
-      setMembers(qpUsername ? [qpUsername] : []);
     }
   }, [searchParams, setPartyCode]);
 
   useEffect(() => {
     socket.on("party_created", (data: PlayerData) => {
-      // Ensure party_code is defined
       if (!data.party_code) {
         setGoodBanner(false);
         setMessage("Party creation error");
@@ -58,6 +56,9 @@ function HomeContent() {
       setPartyStatus(PartyStatus.CREATED);
       setUsername(username);
       setMembers([data.username]);
+    });
+    socket.on("players_update", (data: PlayerData) => {
+      setMembers(data.players ? data.players : []);
     });
     socket.on("player_joined", (data: PlayerData) => {
       if (!data.players) {
@@ -80,11 +81,7 @@ function HomeContent() {
       setGoodBanner(true);
       setProblem(data.problem);
       setPartyCode(data.party_code);
-      router.push(
-        `/game?party=${encodeURIComponent(
-          data.party_code
-        )}&timeLimit=${encodeURIComponent(data.time_limit)}`
-      );
+      router.push(`/game?party=${encodeURIComponent(data.party_code)}`);
     });
     socket.on("error", (data: ErrorData) => {
       if (data.message === "Party not found") {
@@ -98,6 +95,7 @@ function HomeContent() {
     });
     return () => {
       socket.off("party_created");
+      socket.off("players_update");
       socket.off("player_joined");
       socket.off("player_left");
       socket.off("game_started");
