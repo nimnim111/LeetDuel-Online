@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect, Suspense } from "react";
 import { useGame } from "../../context/GameContext";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Problem, MessageData, GameData } from "../../types";
+import { Problem, MessageData, GameData, TimeData } from "../../types";
 import socket from "../../socket";
 import Editor from "@monaco-editor/react";
 import parse from "html-react-parser";
@@ -43,17 +43,15 @@ function GameContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const party = searchParams.get("party") || "Unknown";
-  const timeLimitParam = searchParams.get("timeLimit");
-  const initialTime = timeLimitParam ? parseInt(timeLimitParam, 10) * 60 : 0;
+  const initialTime = 0;
   const [timeLeft, setTimeLeft] = useState(initialTime);
   const [buttonDisabled, setButtonDisabled] = useState(false);
 
   const [code, setCode] = useState(starterCode(problem));
   const lastCodeRef = useRef(code);
   const scrollIfAppendedRef = useRef(false);
-
-  // Add dark mode detection state and effect
   const [isDarkMode, setIsDarkMode] = useState(false);
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
@@ -65,12 +63,11 @@ function GameContent() {
   }, []);
 
   useEffect(() => {
-    if (initialTime <= 0) return;
     const interval = setInterval(() => {
       setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
     }, 1000);
     return () => clearInterval(interval);
-  }, [initialTime]);
+  }, []);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -125,12 +122,12 @@ function GameContent() {
       setProblem(data.problem);
       setCode(starterCode(data.problem));
       setConsoleOutput("Test case output");
-      setTimeLeft(initialTime);
-      router.push(
-        `/game?party=${encodeURIComponent(
-          data.party_code
-        )}&timeLimit=${encodeURIComponent(data.time_limit)}`
-      );
+      retrieveTime();
+      router.push(`/game?party=${encodeURIComponent(data.party_code)}`);
+    });
+
+    socket.on("update_time", (data: TimeData) => {
+      setTimeLeft(Math.round(data.time_left));
     });
 
     return () => {
@@ -141,6 +138,7 @@ function GameContent() {
       socket.off("game_over");
       socket.off("leave_party");
       socket.off("game_started");
+      socket.off("update_time");
     };
   }, [problem, router]);
 
@@ -173,6 +171,17 @@ function GameContent() {
         chatContainerRef.current.scrollHeight;
     }
   }, [chatMessages]);
+
+  function retrieveTime() {
+    console.log("Retrieving time...");
+    socket.emit("retrieve_time", {
+      party_code: party,
+    });
+  }
+
+  useEffect(() => {
+    retrieveTime();
+  }, []);
 
   const runCode = () => {
     console.log(party);

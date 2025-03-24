@@ -42,3 +42,7 @@ export interface MessageData {
   color: string;
   username: string;
 }
+
+export interface TimeData {
+  time_left: number;
+}

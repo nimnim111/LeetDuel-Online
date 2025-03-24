@@ -1,5 +1,6 @@
 import random
 import string
+import time
 
 import socketio
 import asyncio
@@ -95,15 +96,17 @@ async def join_party(sid: str, data: dict) -> None:
     party_code = data["party_code"]
     username = data["username"]
 
-    if party_code not in parties or parties[party_code]["status"] != "waiting":
+    if party_code not in parties:
         await sio.emit("error", {"message": "Party not found"}, to=sid)
         return
 
     if len(parties[party_code]["players"]) >= 10:
         await sio.emit("error", {"message": "Party is full!"}, to=sid)
         return
+    
+    player = {"sid": sid, "username": username}
 
-    parties[party_code]["players"].append({"sid": sid, "username": username})
+    parties[party_code]["players"].append(player)
     player_usernames = [d["username"] for d in parties[party_code]["players"]]
     await sio.enter_room(sid, party_code)
     await sio.emit(
@@ -116,13 +119,18 @@ async def join_party(sid: str, data: dict) -> None:
     )
     print(f"players being added:\n{parties[party_code]['players']}")
 
+    if parties[party_code]["status"] == "in_progress":
+        player["passed"] = False
+        await sio.emit("game_started", {"problem": parties[party_code]["problem"], "party_code": party_code}, to=sid)
+        await sio.emit("announcement", {"message": f"{username} has joined the game!"}, room=party_code)
+
 
 @sio.event
 async def start_game(sid: str, data: dict, difficulties: list[bool] = []) -> None:
     print(f"start_game event received from {sid}: {data}")
     party_code = data["party_code"]
     difficulty = difficulties or [data["easy"], data["medium"], data["hard"]]
-    time_limit = data["time_limit"] or "15"
+    time_limit = int(data["time_limit"] or "15")
 
     if party_code not in parties:
         await sio.emit("error", {"message": "Party not found"}, to=sid)
@@ -130,13 +138,16 @@ async def start_game(sid: str, data: dict, difficulties: list[bool] = []) -> Non
 
     if parties[party_code]["host"] == sid:
         try:
+            end_time = time.time() + (time_limit * 60)
             problem = get_random_problem(difficulty)
             parties[party_code]["problem"] = problem
             parties[party_code]["status"] = "in_progress"
             parties[party_code]["difficulties"] = difficulty
             parties[party_code]["time_limit"] = time_limit
+            parties[party_code]["end_time"] = end_time
 
-            await sio.emit("game_started", {"problem": problem, "party_code": party_code, "time_limit": time_limit}, room=party_code)
+            await sio.emit("game_started", {"problem": problem, "party_code": party_code}, room=party_code)
+            await sio.emit("update_time", {"time_left": (time_limit * 60)}, to=sid)
             asyncio.create_task(game_timeout(party_code, time_limit, problem["name"]))
 
         except Exception as e:
@@ -301,6 +312,13 @@ async def skip_problem(sid: str, data: dict) -> None:
 
     await start_game(sid, {"party_code": party_code, "time_limit": party["time_limit"]}, party["difficulties"])
 
+
+@sio.event
+async def retrieve_time(sid: str, data: dict) -> None:
+    party_code = data["party_code"]
+    time_left = parties[party_code]["end_time"] - time.time()
+    print(f"retrieve_time event received from {sid}, time left: {time_left}")
+    await sio.emit("update_time", {"time_left": time_left}, to=sid)
 
 @app.get("/")
 async def read_root():
