@@ -189,6 +189,7 @@ async def submit_code(sid: str, data: dict) -> None:
         for player in parties[party_code]["players"]:
             if player["sid"] == sid:
                 player["passed"] = True
+                await sio.emit("passed_all", to=sid)
 
     await sio.emit("code_submitted", {"message": message_to_client}, to=sid)
 
@@ -334,6 +335,48 @@ async def code_update(sid: str, data: dict) -> None:
     for player in parties[party_code]["players"]:
         if player["sid"] == sid:
             player["code"] = new_code
+
+    await sio.emit("updated_code", {"new_code": new_code}, room=sid)
+
+
+@sio.event
+async def console_update(sid: str, data: dict) -> None:
+    print(f"console_update event received from {sid}, text: {data['console_output']}")
+    party_code = data["party_code"]
+    new_text = data["console_output"]
+
+    if party_code not in parties:
+        return
+    
+    for player in parties[party_code]["players"]:
+        if player["sid"] == sid:
+            player["console_output"] = new_text
+
+    await sio.emit("updated_console", {"new_text": new_text}, room=sid)
+
+
+@sio.event
+async def retrieve_players(sid: str, data: dict) -> None:
+    party_code = data["party_code"]
+    players = parties[party_code]["players"]
+    player_usernames = [d["username"] for d in players]
+    print(f"retrieve_players event received from {sid}, players: {player_usernames}")
+    await sio.emit("send_players", {"players": player_usernames}, to=sid)
+
+
+@sio.event
+async def retrieve_code(sid: str, data: dict) -> None:
+    print(f"retrieve_code event received from {sid}")
+    party_code = data["party_code"]
+    username = data["username"]
+    spectate_sid = ""
+    for player in parties[party_code]["players"]:
+        if player["username"] == username:
+            spectate_sid = player["sid"]
+        else:
+            sio.leave_room(sid, player["sid"])
+    await sio.enter_room(sid, spectate_sid)
+
 
 @app.get("/")
 async def read_root():
