@@ -63,6 +63,8 @@ function GameContent() {
   const modalRef = useRef<HTMLDivElement>(null);
   const [members, setMembers] = useState<string[]>([]);
   const [screen, setScreen] = useState<string>(username);
+  // Add new state to store user's own code for restoration
+  const [homeCode, setHomeCode] = useState(starterCode(problem));
 
   // Add effect to close modal when clicking outside
   useEffect(() => {
@@ -173,6 +175,7 @@ function GameContent() {
     });
 
     socket.on("updated_code", (data) => {
+      console.log(data.new_code);
       setCode(data.new_code);
     });
 
@@ -271,20 +274,25 @@ function GameContent() {
   };
 
   const handleCodeChange = (e: string | undefined) => {
+    console.log("fuck");
+    if (screen !== username) {
+      return;
+    }
     const newCode = e || "";
     setCode(newCode);
+    setHomeCode(newCode); // update own code storage
     keyCounterRef.current++;
     if (codeUpdateTimer) {
       clearTimeout(codeUpdateTimer);
     }
-    if (keyCounterRef.current >= 5) {
+    if (keyCounterRef.current >= 6) {
       updateCode(newCode);
       return;
     }
     setCodeUpdateTimer(
       setTimeout(() => {
         updateCode(newCode);
-      }, 2000)
+      }, 3000)
     );
   };
 
@@ -299,14 +307,20 @@ function GameContent() {
   };
 
   const handleSpectateClick = (member: string) => {
-    socket.emit("retrieve_code", { party_code: party, username: member });
+    // If clicking "Home", restore own code without emitting socket event
+    if (member === username) {
+      setScreen(username);
+      setCode(homeCode);
+      return;
+    }
     setScreen(member);
+    socket.emit("retrieve_code", { party_code: party, username: member });
   };
 
   return (
     <>
       {/* Fixed "Members" button placed on the top right, to the left of the Party Chat */}
-      <div className="fixed top-4 right-[17%] z-50">
+      <div className="fixed top-4 right-[18%] z-50">
         <button
           onClick={handlePlayersClick}
           className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md shadow"
@@ -330,7 +344,7 @@ function GameContent() {
                     /*disabled={!passedAll}*/
                     onClick={() => handleSpectateClick(member)}
                   >
-                    Spectate
+                    {member === username ? "Home" : "Spectate"}
                   </button>
                 </li>
               ))}
