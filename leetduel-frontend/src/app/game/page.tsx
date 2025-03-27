@@ -65,6 +65,7 @@ function GameContent() {
   const [screen, setScreen] = useState<string>(username);
   // Add new state to store user's own code for restoration
   const [homeCode, setHomeCode] = useState(starterCode(problem));
+  const [homeConsole, setHomeConsole] = useState("Test case output");
 
   // Add effect to close modal when clicking outside
   useEffect(() => {
@@ -111,7 +112,9 @@ function GameContent() {
       router.push("/");
     }
     socket.on("code_submitted", (data: MessageData) => {
+      console.log("Received code_submitted event");
       setConsoleOutput(data.message);
+      setHomeConsole(data.message);
       socket.emit("console_update", {
         party_code: party,
         console_output: data.message,
@@ -131,6 +134,7 @@ function GameContent() {
     });
 
     socket.on("player_submit", (data: MessageData) => {
+      console.log("Received player_submit event");
       setChatMessages((prevMessages) => [...prevMessages, data]);
     });
 
@@ -241,8 +245,6 @@ function GameContent() {
   }, []);
 
   const runCode = () => {
-    console.log(party);
-    console.log(username);
     setConsoleOutput("Running code...");
     setButtonDisabled(true);
     socket.emit("submit_code", {
@@ -274,7 +276,6 @@ function GameContent() {
   };
 
   const handleCodeChange = (e: string | undefined) => {
-    console.log("fuck");
     if (screen !== username) {
       return;
     }
@@ -285,14 +286,14 @@ function GameContent() {
     if (codeUpdateTimer) {
       clearTimeout(codeUpdateTimer);
     }
-    if (keyCounterRef.current >= 6) {
+    if (keyCounterRef.current >= 4) {
       updateCode(newCode);
       return;
     }
     setCodeUpdateTimer(
       setTimeout(() => {
         updateCode(newCode);
-      }, 3000)
+      }, 1000)
     );
   };
 
@@ -311,6 +312,11 @@ function GameContent() {
     if (member === username) {
       setScreen(username);
       setCode(homeCode);
+      setConsoleOutput(homeConsole);
+      setButtonDisabled(false); // reset run code button state
+      socket.emit("leave_spectate_rooms", {
+        party_code: party,
+      });
       return;
     }
     setScreen(member);
@@ -386,7 +392,11 @@ function GameContent() {
               <button
                 onClick={runCode}
                 disabled={screen !== username || buttonDisabled}
-                className="absolute bottom-4 right-4 bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg transition"
+                className={`absolute bottom-4 right-4 ${
+                  screen !== username || buttonDisabled
+                    ? "bg-gray-500 cursor-not-allowed"
+                    : "bg-indigo-600 hover:bg-indigo-700"
+                } text-white py-2 px-4 rounded-lg transition`}
               >
                 Run Code
               </button>
