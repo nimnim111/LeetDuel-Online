@@ -198,8 +198,8 @@ async def submit_code(sid: str, data: dict) -> None:
                 player["passed"] = True
                 await sio.emit("passed_all", to=sid)
 
-    print(f"submitting code: {message_to_client}")
     await sio.emit("code_submitted", {"message": message_to_client}, to=sid)
+    print(f"submitted code: {message_to_client}")
 
     if "message" not in r or r["message"] != "Rate limited! Please wait 5 seconds and try again.":
         await sio.emit("player_submit", {"message": message_to_room, "bold": True, "color": color}, room=party_code)
@@ -389,7 +389,7 @@ async def retrieve_code(sid: str, data: dict) -> None:
             new_text = player["console_output"]
             new_code = player["code"]
         else:
-            await sio.leave_room(sid, player["sid"])
+            await sio.leave_room(sid, f"{player['sid']}:spectate")
     if sid != spectate_sid:
         await sio.enter_room(sid, f"{spectate_sid}:spectate")
 

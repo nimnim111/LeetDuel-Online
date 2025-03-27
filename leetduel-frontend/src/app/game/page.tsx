@@ -346,8 +346,14 @@ function GameContent() {
                 >
                   <span>{member}</span>
                   <button
-                    className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded"
-                    /*disabled={!passedAll}*/
+                    className={`px-2 py-1 rounded text-white ${
+                      member === username
+                        ? "bg-green-600 hover:bg-green-700"
+                        : passedAll
+                        ? "bg-green-600 hover:bg-green-700"
+                        : "bg-gray-500 cursor-not-allowed"
+                    }`}
+                    disabled={member === username ? false : !passedAll}
                     onClick={() => handleSpectateClick(member)}
                   >
                     {member === username ? "Home" : "Spectate"}
