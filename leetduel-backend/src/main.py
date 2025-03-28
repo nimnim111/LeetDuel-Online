@@ -122,7 +122,7 @@ async def join_party(sid: str, data: dict) -> None:
     if parties[party_code]["status"] == "in_progress":
         player["passed"] = False
         problem = parties[party_code]["problem"]
-        player["code"] = f"{problem['function_signature']}:\n   # your code here\n  return"
+        player["code"] = f"{problem['function_signature']}:\n    # your code here\n    return"
         player["console_output"] = "Test case output"
         await sio.emit("game_started", {"problem": parties[party_code]["problem"], "party_code": party_code}, to=sid)
         await sio.emit("announcement", {"message": f"{username} has joined the game!"}, room=party_code)
@@ -199,7 +199,6 @@ async def submit_code(sid: str, data: dict) -> None:
                 await sio.emit("passed_all", to=sid)
 
     await sio.emit("code_submitted", {"message": message_to_client}, to=sid)
-    print(f"submitted code: {message_to_client}")
 
     if "message" not in r or r["message"] != "Rate limited! Please wait 5 seconds and try again.":
         await sio.emit("player_submit", {"message": message_to_room, "bold": True, "color": color}, room=party_code)
@@ -336,7 +335,6 @@ async def retrieve_time(sid: str, data: dict) -> None:
 
 @sio.event
 async def code_update(sid: str, data: dict) -> None:
-    # print(f"code_update event received from {sid}, code: {data['code']}")
     party_code = data["party_code"]
     new_code = data["code"]
 
@@ -352,7 +350,6 @@ async def code_update(sid: str, data: dict) -> None:
 
 @sio.event
 async def console_update(sid: str, data: dict) -> None:
-    # print(f"console_update event received from {sid}, text: {data['console_output']}")
     party_code = data["party_code"]
     new_text = data["console_output"]
 

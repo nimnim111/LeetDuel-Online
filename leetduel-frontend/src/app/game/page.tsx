@@ -49,7 +49,6 @@ function GameContent() {
   const [passedAll, setPassedAll] = useState(false);
 
   const [code, setCode] = useState(starterCode(problem));
-  // Add new state for debounce timer
   const [codeUpdateTimer, setCodeUpdateTimer] = useState<NodeJS.Timeout | null>(
     null
   );
@@ -63,11 +62,9 @@ function GameContent() {
   const modalRef = useRef<HTMLDivElement>(null);
   const [members, setMembers] = useState<string[]>([]);
   const [screen, setScreen] = useState<string>(username);
-  // Add new state to store user's own code for restoration
   const [homeCode, setHomeCode] = useState(starterCode(problem));
   const [homeConsole, setHomeConsole] = useState("Test case output");
 
-  // Add effect to close modal when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (
@@ -112,7 +109,6 @@ function GameContent() {
       router.push("/");
     }
     socket.on("code_submitted", (data: MessageData) => {
-      console.log("Received code_submitted event");
       setConsoleOutput(data.message);
       setHomeConsole(data.message);
       socket.emit("console_update", {
@@ -134,7 +130,6 @@ function GameContent() {
     });
 
     socket.on("player_submit", (data: MessageData) => {
-      console.log("Received player_submit event");
       setChatMessages((prevMessages) => [...prevMessages, data]);
     });
 
@@ -159,6 +154,7 @@ function GameContent() {
 
     socket.on("game_started", (data: GameData) => {
       setProblem(data.problem);
+      setScreen(username);
       setCode(starterCode(data.problem));
       setConsoleOutput("Test case output");
       setPassedAll(false);
@@ -179,7 +175,6 @@ function GameContent() {
     });
 
     socket.on("updated_code", (data) => {
-      console.log(data.new_code);
       setCode(data.new_code);
     });
 
@@ -234,7 +229,6 @@ function GameContent() {
   }, [chatMessages]);
 
   function retrieveTime() {
-    console.log("Retrieving time...");
     socket.emit("retrieve_time", {
       party_code: party,
     });
@@ -308,12 +302,11 @@ function GameContent() {
   };
 
   const handleSpectateClick = (member: string) => {
-    // If clicking "Home", restore own code without emitting socket event
     if (member === username) {
       setScreen(username);
       setCode(homeCode);
       setConsoleOutput(homeConsole);
-      setButtonDisabled(false); // reset run code button state
+      setButtonDisabled(false);
       socket.emit("leave_spectate_rooms", {
         party_code: party,
       });
@@ -325,7 +318,6 @@ function GameContent() {
 
   return (
     <>
-      {/* Fixed "Members" button placed on the top right, to the left of the Party Chat */}
       <div className="fixed top-4 right-[18%] z-50">
         <button
           onClick={handlePlayersClick}
@@ -334,7 +326,6 @@ function GameContent() {
           Players
         </button>
       </div>
-      {/* Modal for Members */}
       {showMembers && (
         <div className="absolute top-16 right-[17%] z-50" ref={modalRef}>
           <div className="bg-white dark:bg-gray-800 p-6 rounded shadow-lg w-80">
@@ -364,7 +355,6 @@ function GameContent() {
           </div>
         </div>
       )}
-      {/* ...existing code for main content... */}
       <div
         className="min-h-screen bg-gray-100 dark:bg-gray-900 p-6 pr-[18%] text-gray-900 dark:text-gray-100"
         style={{ position: "relative" }}
