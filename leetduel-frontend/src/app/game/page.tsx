@@ -46,11 +46,40 @@ function GameContent() {
   const initialTime = 0;
   const [timeLeft, setTimeLeft] = useState(initialTime);
   const [buttonDisabled, setButtonDisabled] = useState(false);
+  const [passedAll, setPassedAll] = useState(false);
 
   const [code, setCode] = useState(starterCode(problem));
+  const [codeUpdateTimer, setCodeUpdateTimer] = useState<NodeJS.Timeout | null>(
+    null
+  );
   const lastCodeRef = useRef(code);
   const scrollIfAppendedRef = useRef(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
+
+  const keyCounterRef = useRef(0);
+
+  const [showMembers, setShowMembers] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
+  const [members, setMembers] = useState<string[]>([]);
+  const [screen, setScreen] = useState<string>(username);
+  const [homeCode, setHomeCode] = useState(starterCode(problem));
+  const [homeConsole, setHomeConsole] = useState("Test case output");
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        showMembers &&
+        modalRef.current &&
+        !modalRef.current.contains(event.target as Node)
+      ) {
+        setShowMembers(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showMembers]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -81,6 +110,11 @@ function GameContent() {
     }
     socket.on("code_submitted", (data: MessageData) => {
       setConsoleOutput(data.message);
+      setHomeConsole(data.message);
+      socket.emit("console_update", {
+        party_code: party,
+        console_output: data.message,
+      });
       setButtonDisabled(false);
     });
 
@@ -120,14 +154,32 @@ function GameContent() {
 
     socket.on("game_started", (data: GameData) => {
       setProblem(data.problem);
+      setScreen(username);
       setCode(starterCode(data.problem));
       setConsoleOutput("Test case output");
+      setPassedAll(false);
       retrieveTime();
       router.push(`/game?party=${encodeURIComponent(data.party_code)}`);
     });
 
     socket.on("update_time", (data: TimeData) => {
       setTimeLeft(Math.round(data.time_left));
+    });
+
+    socket.on("passed_all", () => {
+      setPassedAll(true);
+    });
+
+    socket.on("send_players", (data) => {
+      setMembers(data.players);
+    });
+
+    socket.on("updated_code", (data) => {
+      setCode(data.new_code);
+    });
+
+    socket.on("updated_console", (data) => {
+      setConsoleOutput(data.new_text);
     });
 
     return () => {
@@ -139,6 +191,10 @@ function GameContent() {
       socket.off("leave_party");
       socket.off("game_started");
       socket.off("update_time");
+      socket.off("passed_all");
+      socket.off("send_players");
+      socket.off("updated_code");
+      socket.off("updated_console");
     };
   }, [problem, router]);
 
@@ -173,7 +229,6 @@ function GameContent() {
   }, [chatMessages]);
 
   function retrieveTime() {
-    console.log("Retrieving time...");
     socket.emit("retrieve_time", {
       party_code: party,
     });
@@ -184,8 +239,6 @@ function GameContent() {
   }, []);
 
   const runCode = () => {
-    console.log(party);
-    console.log(username);
     setConsoleOutput("Running code...");
     setButtonDisabled(true);
     socket.emit("submit_code", {
@@ -216,8 +269,92 @@ function GameContent() {
     console.log("Skip problem clicked");
   };
 
+  const handleCodeChange = (e: string | undefined) => {
+    if (screen !== username) {
+      return;
+    }
+    const newCode = e || "";
+    setCode(newCode);
+    setHomeCode(newCode); // update own code storage
+    keyCounterRef.current++;
+    if (codeUpdateTimer) {
+      clearTimeout(codeUpdateTimer);
+    }
+    if (keyCounterRef.current >= 4) {
+      updateCode(newCode);
+      return;
+    }
+    setCodeUpdateTimer(
+      setTimeout(() => {
+        updateCode(newCode);
+      }, 1000)
+    );
+  };
+
+  const updateCode = (updatedCode: string) => {
+    socket.emit("code_update", { party_code: party, code: updatedCode });
+    keyCounterRef.current = 0;
+  };
+
+  const handlePlayersClick = () => {
+    socket.emit("retrieve_players", { party_code: party });
+    setShowMembers(true);
+  };
+
+  const handleSpectateClick = (member: string) => {
+    if (member === username) {
+      setScreen(username);
+      setCode(homeCode);
+      setConsoleOutput(homeConsole);
+      setButtonDisabled(false);
+      socket.emit("leave_spectate_rooms", {
+        party_code: party,
+      });
+      return;
+    }
+    setScreen(member);
+    socket.emit("retrieve_code", { party_code: party, username: member });
+  };
+
   return (
-    <div>
+    <>
+      <div className="fixed top-4 right-[18%] z-50">
+        <button
+          onClick={handlePlayersClick}
+          className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md shadow"
+        >
+          Players
+        </button>
+      </div>
+      {showMembers && (
+        <div className="absolute top-16 right-[17%] z-50" ref={modalRef}>
+          <div className="bg-white dark:bg-gray-800 p-6 rounded shadow-lg w-80">
+            <ul>
+              {members.map((member, index) => (
+                <li
+                  key={index}
+                  className="flex justify-between items-center py-2 border-b border-gray-300 dark:border-gray-700"
+                >
+                  <span>{member}</span>
+                  <button
+                    className={`px-2 py-1 rounded text-white ${
+                      member === username
+                        ? "bg-green-600 hover:bg-green-700"
+                        : passedAll
+                        ? "bg-green-600 hover:bg-green-700"
+                        : "bg-gray-500 cursor-not-allowed"
+                    }`}
+                    disabled={member === username ? false : !passedAll}
+                    onClick={() => handleSpectateClick(member)}
+                  >
+                    {member === username ? "Home" : "Spectate"}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
       <div
         className="min-h-screen bg-gray-100 dark:bg-gray-900 p-6 pr-[18%] text-gray-900 dark:text-gray-100"
         style={{ position: "relative" }}
@@ -250,8 +387,12 @@ function GameContent() {
               )}
               <button
                 onClick={runCode}
-                disabled={buttonDisabled}
-                className="absolute bottom-4 right-4 bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg transition"
+                disabled={screen !== username || buttonDisabled}
+                className={`absolute bottom-4 right-4 ${
+                  screen !== username || buttonDisabled
+                    ? "bg-gray-500 cursor-not-allowed"
+                    : "bg-indigo-600 hover:bg-indigo-700"
+                } text-white py-2 px-4 rounded-lg transition`}
               >
                 Run Code
               </button>
@@ -262,13 +403,14 @@ function GameContent() {
                   height="100%"
                   defaultLanguage="python"
                   value={code}
-                  onChange={(e) => setCode(e || "")}
+                  onChange={handleCodeChange}
                   theme={isDarkMode ? "vs-dark" : "light"}
                   options={{
                     fontSize: 15,
                     padding: { top: 16, bottom: 16 },
                     minimap: { enabled: false },
                     folding: false,
+                    readOnly: screen !== username,
                   }}
                 />
               </div>
@@ -337,7 +479,7 @@ function GameContent() {
           </button>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 

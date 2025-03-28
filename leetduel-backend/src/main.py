@@ -121,6 +121,9 @@ async def join_party(sid: str, data: dict) -> None:
 
     if parties[party_code]["status"] == "in_progress":
         player["passed"] = False
+        problem = parties[party_code]["problem"]
+        player["code"] = f"{problem['function_signature']}:\n    # your code here\n    return"
+        player["console_output"] = "Test case output"
         await sio.emit("game_started", {"problem": parties[party_code]["problem"], "party_code": party_code}, to=sid)
         await sio.emit("announcement", {"message": f"{username} has joined the game!"}, room=party_code)
 
@@ -145,6 +148,10 @@ async def start_game(sid: str, data: dict, difficulties: list[bool] = []) -> Non
             parties[party_code]["difficulties"] = difficulty
             parties[party_code]["time_limit"] = time_limit
             parties[party_code]["end_time"] = end_time
+
+            for player in parties[party_code]["players"]:
+                player["code"] = f"{problem['function_signature']}:\n    # your code here\n    return"
+                player["console_output"] = "Test case output"
 
             await sio.emit("game_started", {"problem": problem, "party_code": party_code}, room=party_code)
             await sio.emit("update_time", {"time_left": (time_limit * 60)}, to=sid)
@@ -189,6 +196,7 @@ async def submit_code(sid: str, data: dict) -> None:
         for player in parties[party_code]["players"]:
             if player["sid"] == sid:
                 player["passed"] = True
+                await sio.emit("passed_all", to=sid)
 
     await sio.emit("code_submitted", {"message": message_to_client}, to=sid)
 
@@ -317,9 +325,81 @@ async def skip_problem(sid: str, data: dict) -> None:
 @sio.event
 async def retrieve_time(sid: str, data: dict) -> None:
     party_code = data["party_code"]
+    if party_code not in parties:
+        return
+    
     time_left = parties[party_code]["end_time"] - time.time()
     print(f"retrieve_time event received from {sid}, time left: {time_left}")
     await sio.emit("update_time", {"time_left": time_left}, to=sid)
+
+
+@sio.event
+async def code_update(sid: str, data: dict) -> None:
+    party_code = data["party_code"]
+    new_code = data["code"]
+
+    if party_code not in parties:
+        return
+    
+    for player in parties[party_code]["players"]:
+        if player["sid"] == sid:
+            player["code"] = new_code
+
+    await sio.emit("updated_code", {"new_code": new_code}, room=f"{sid}:spectate")
+
+
+@sio.event
+async def console_update(sid: str, data: dict) -> None:
+    party_code = data["party_code"]
+    new_text = data["console_output"]
+
+    if party_code not in parties:
+        return
+    
+    for player in parties[party_code]["players"]:
+        if player["sid"] == sid:
+            player["console_output"] = new_text
+
+    await sio.emit("updated_console", {"new_text": new_text}, room=f"{sid}:spectate")
+
+
+@sio.event
+async def retrieve_players(sid: str, data: dict) -> None:
+    party_code = data["party_code"]
+    players = parties[party_code]["players"]
+    player_usernames = [d["username"] for d in players]
+    print(f"retrieve_players event received from {sid}, players: {player_usernames}")
+    await sio.emit("send_players", {"players": player_usernames}, to=sid)
+
+
+@sio.event
+async def retrieve_code(sid: str, data: dict) -> None:
+    print(f"retrieve_code event received from {sid}")
+    party_code = data["party_code"]
+    username = data["username"]
+    spectate_sid = ""
+    new_text = ""
+    new_code = ""
+    for player in parties[party_code]["players"]:
+        if player["username"] == username:
+            spectate_sid = player["sid"]
+            new_text = player["console_output"]
+            new_code = player["code"]
+        else:
+            await sio.leave_room(sid, f"{player['sid']}:spectate")
+    if sid != spectate_sid:
+        await sio.enter_room(sid, f"{spectate_sid}:spectate")
+
+    await sio.emit("updated_console", {"new_text": new_text}, room=f"{spectate_sid}:spectate")
+    await sio.emit("updated_code", {"new_code": new_code}, room=f"{spectate_sid}:spectate")
+
+
+@sio.event
+async def leave_spectate_rooms(sid: str, data: dict) -> None:
+    party_code = data["party_code"]
+    for player in parties[party_code]["players"]:
+        await sio.leave_room(sid, f"{player['sid']}:spectate")
+
 
 @app.get("/")
 async def read_root():
