@@ -314,7 +314,7 @@ async def skip_problem(sid: str, data: dict) -> None:
         return
     
     await sio.emit("announcement", {"message": "Problem is being skipped..."}, room=party_code)
-    await asyncio.sleep(2)
+    await asyncio.sleep(1)
 
     for player in party["players"]:
         player["passed"] = False
@@ -345,7 +345,7 @@ async def code_update(sid: str, data: dict) -> None:
         if player["sid"] == sid:
             player["code"] = new_code
 
-    await sio.emit("updated_code", {"new_code": new_code}, room=f"{sid}:spectate")
+    await sio.emit("updated_code", {"message": new_code}, room=f"{sid}:spectate")
 
 
 @sio.event
@@ -360,7 +360,7 @@ async def console_update(sid: str, data: dict) -> None:
         if player["sid"] == sid:
             player["console_output"] = new_text
 
-    await sio.emit("updated_console", {"new_text": new_text}, room=f"{sid}:spectate")
+    await sio.emit("updated_console", {"message": new_text}, room=f"{sid}:spectate")
 
 
 @sio.event
@@ -390,8 +390,8 @@ async def retrieve_code(sid: str, data: dict) -> None:
     if sid != spectate_sid:
         await sio.enter_room(sid, f"{spectate_sid}:spectate")
 
-    await sio.emit("updated_console", {"new_text": new_text}, room=f"{spectate_sid}:spectate")
-    await sio.emit("updated_code", {"new_code": new_code}, room=f"{spectate_sid}:spectate")
+    await sio.emit("updated_console", {"message": new_text}, room=f"{spectate_sid}:spectate")
+    await sio.emit("updated_code", {"message": new_code}, room=f"{spectate_sid}:spectate")
 
 
 @sio.event

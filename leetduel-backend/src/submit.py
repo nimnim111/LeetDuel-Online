@@ -3,6 +3,8 @@ import subprocess
 import time
 from ratelimit import limits, RateLimitException
 
+from src.classes.ListNode import ListNode, linkedList
+
 
 
 class Problem:
@@ -16,9 +18,37 @@ class Problem:
 
     def submit_code(self, code: str, timeout: int = 2) -> dict:
         function_name = self.problem["function_signature"].split("(")[0][4:]
-        code = f"""import sys
+        code = """
+import sys
 import json
 import time
+
+class ListNode(object):
+    def __init__(self, x=0, next=None):
+        self.val = x
+        self.next = next
+
+    def __repr__(self):
+        r = []
+        copy = self
+        while copy:
+            r.append(copy.val)
+            copy = copy.next
+
+        return str(r)
+
+
+def linkedList(a):
+    if not a:
+        return None
+    
+    head = curr = ListNode(a[0])
+    for i in a[1:]:
+        curr.next = ListNode(i)
+        curr = curr.next
+
+    return head
+""" + f"""
 {code}
 input_data = sys.stdin.read().strip()
 test_cases = json.loads(input_data)
@@ -72,7 +102,8 @@ print(int((time.time_ns() - start_time) / 1e6))
         data = data[-n:]
 
         for i in range(len(data)):
-
+            
+            
             user_output = data[i]
             test_output = test_cases[i]["output"]
 
@@ -100,7 +131,12 @@ print(int((time.time_ns() - start_time) / 1e6))
         r["passed test cases"] = count
         
         if failed_index != -1:
-            r["failed_test"] = f"Input: {json.dumps(eval(test_cases[failed_index]['input']))}\nExpected {test_cases[failed_index]['output']}, got {data[failed_index]}"
+            try:
+                print(eval(test_cases[failed_index]['input']))
+                print(json.dumps(eval(test_cases[failed_index]['input'])))
+            except Exception as e:
+                print(e)
+            r["failed_test"] = f"Input: {str(eval(test_cases[failed_index]['input']))}\nExpected {test_cases[failed_index]['output']}, got {data[failed_index]}"
 
         return r
     

@@ -2,7 +2,13 @@
 import { useState, useRef, useEffect, Suspense } from "react";
 import { useGame } from "../../context/GameContext";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Problem, MessageData, GameData, TimeData } from "../../types";
+import {
+  Problem,
+  MessageData,
+  GameData,
+  TimeData,
+  PlayerData,
+} from "../../types";
 import socket from "../../socket";
 import Editor from "@monaco-editor/react";
 import parse from "html-react-parser";
@@ -31,14 +37,16 @@ const starterCode = (problem: Problem) =>
 
 function GameContent() {
   const [consoleOutput, setConsoleOutput] = useState("Test case output");
-  const [chatMessages, setChatMessages] = useState([
+  const [chatMessages, setChatMessages] = useState<MessageData[]>([
     { message: "Game started!", bold: true, color: "" },
   ]);
   const [chatInput, setChatInput] = useState("");
+
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const lineNumbersRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const editorContainerRef = useRef<HTMLDivElement>(null);
+
   const { problem, username, setProblem } = useGame();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -46,6 +54,7 @@ function GameContent() {
   const initialTime = 0;
   const [timeLeft, setTimeLeft] = useState(initialTime);
   const [buttonDisabled, setButtonDisabled] = useState(false);
+  const [skipButtonDisabled, setSkipButtonDisabled] = useState(false);
   const [passedAll, setPassedAll] = useState(false);
 
   const [code, setCode] = useState(starterCode(problem));
@@ -62,6 +71,7 @@ function GameContent() {
   const modalRef = useRef<HTMLDivElement>(null);
   const [members, setMembers] = useState<string[]>([]);
   const [screen, setScreen] = useState<string>(username);
+
   const [homeCode, setHomeCode] = useState(starterCode(problem));
   const [homeConsole, setHomeConsole] = useState("Test case output");
 
@@ -153,12 +163,20 @@ function GameContent() {
     });
 
     socket.on("game_started", (data: GameData) => {
+      setSkipButtonDisabled(false);
       setProblem(data.problem);
       setScreen(username);
       setCode(starterCode(data.problem));
       setConsoleOutput("Test case output");
+      setHomeCode(starterCode(data.problem));
+      setHomeConsole("Test case output");
       setPassedAll(false);
       retrieveTime();
+      socket.emit("code_update", { party_code: party, code: code });
+      socket.emit("console_update", {
+        party_code: party,
+        console_output: consoleOutput,
+      });
       router.push(`/game?party=${encodeURIComponent(data.party_code)}`);
     });
 
@@ -170,16 +188,16 @@ function GameContent() {
       setPassedAll(true);
     });
 
-    socket.on("send_players", (data) => {
-      setMembers(data.players);
+    socket.on("send_players", (data: PlayerData) => {
+      setMembers(data.players ? data.players : []);
     });
 
-    socket.on("updated_code", (data) => {
-      setCode(data.new_code);
+    socket.on("updated_code", (data: MessageData) => {
+      setCode(data.message);
     });
 
-    socket.on("updated_console", (data) => {
-      setConsoleOutput(data.new_text);
+    socket.on("updated_console", (data: MessageData) => {
+      setConsoleOutput(data.message);
     });
 
     return () => {
@@ -265,6 +283,7 @@ function GameContent() {
   };
 
   const skipProblem = () => {
+    setSkipButtonDisabled(true);
     socket.emit("skip_problem", { party_code: party });
     console.log("Skip problem clicked");
   };
@@ -275,7 +294,7 @@ function GameContent() {
     }
     const newCode = e || "";
     setCode(newCode);
-    setHomeCode(newCode); // update own code storage
+    setHomeCode(newCode);
     keyCounterRef.current++;
     if (codeUpdateTimer) {
       clearTimeout(codeUpdateTimer);
@@ -473,6 +492,7 @@ function GameContent() {
           </button>
           <button
             onClick={skipProblem}
+            disabled={skipButtonDisabled}
             className="bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded"
           >
             Skip Problem

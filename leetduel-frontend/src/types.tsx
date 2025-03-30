@@ -40,7 +40,7 @@ export interface MessageData {
   message: string;
   bold: boolean;
   color: string;
-  username: string;
+  username?: string;
 }
 
 export interface TimeData {
