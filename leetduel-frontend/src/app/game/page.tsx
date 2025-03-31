@@ -500,6 +500,11 @@ function GameContent() {
             Skip Problem
           </button>
         </div>
+        <div className="fixed bottom-4 right-[18%] z-50">
+          <button className="bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded">
+            Help
+          </button>
+        </div>
       </div>
     </>
   );

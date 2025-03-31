@@ -121,7 +121,6 @@ async def join_party(sid: str, data: dict) -> None:
         }, 
         room=party_code,
     )
-    print(f"players being added:\n{parties[party_code]['players']}")
 
     if parties[party_code]["status"] == "in_progress":
         player["passed"] = False
