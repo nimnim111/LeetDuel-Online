@@ -4,6 +4,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import socket from "../socket";
 import { useGame } from "../context/GameContext";
 import { PlayerData, GameData, ErrorData } from "../types";
+import Button from "./button";
+import Color from "./colors";
 
 enum PartyStatus {
   UNJOINED = "unjoined",
@@ -29,6 +31,11 @@ function HomeContent() {
   const [showBanner, setShowBanner] = useState(false);
   const [goodBanner, setGoodBanner] = useState(true);
 
+  const [createLoading, setCreateLoading] = useState(false);
+  const [joinLoading, setJoinLoading] = useState(false);
+  const [startLoading, setStartLoading] = useState(false);
+  const [leaveLoading, setLeaveLoading] = useState(false);
+
   // NEW: add state for mouse position and a handler to update it
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -53,6 +60,7 @@ function HomeContent() {
       if (!data.party_code) {
         setGoodBanner(false);
         setMessage("Party creation error");
+        setCreateLoading(false);
         return;
       }
       setGoodBanner(true);
@@ -62,6 +70,7 @@ function HomeContent() {
       setPartyStatus(PartyStatus.CREATED);
       setUsername(username);
       setMembers([data.username]);
+      setCreateLoading(false);
     });
     socket.on("players_update", (data: PlayerData) => {
       setMembers(data.players ? data.players : []);
@@ -70,6 +79,7 @@ function HomeContent() {
       if (!data.players) {
         setGoodBanner(false);
         setMessage("Party join error");
+        setJoinLoading(false);
         return;
       }
       setGoodBanner(true);
@@ -79,6 +89,7 @@ function HomeContent() {
       );
       setUsername(username);
       setMembers(data.players);
+      setJoinLoading(false);
     });
     socket.on("player_left", (data: PlayerData) => {
       setMembers((prev) => prev.filter((member) => member !== data.username));
@@ -88,9 +99,11 @@ function HomeContent() {
       setProblem(data.problem);
       setPartyCode(data.party_code);
       router.push(`/game?party=${encodeURIComponent(data.party_code)}`);
+      setStartLoading(false);
     });
     socket.on("error", (data: ErrorData) => {
       if (data.message === "Party not found") {
+        setJoinLoading(false);
         setPartyStatus(PartyStatus.UNJOINED);
       }
       setGoodBanner(false);
@@ -134,28 +147,34 @@ function HomeContent() {
   const createParty = () => {
     if (username) {
       socket.emit("create_party", { username });
-      setPartyStatus(PartyStatus.CREATED);
+      return;
     }
+    setCreateLoading(false);
   };
 
   const joinParty = () => {
     if (username && localPartyCode) {
       socket.emit("join_party", { username, party_code: localPartyCode });
+      return;
     }
+    setJoinLoading(false);
   };
 
   const startGame = () => {
     if (isNaN(Number(timeLimit))) {
+      setStartLoading(false);
       setGoodBanner(false);
       setMessage("Time limit must be a number.");
       return;
     }
     if (timeLimit && Number(timeLimit) < 1) {
+      setStartLoading(false);
       setGoodBanner(false);
       setMessage("Time limit must be at least 1 minute.");
       return;
     }
     if (!easy && !medium && !hard) {
+      setStartLoading(false);
       setGoodBanner(false);
       setMessage("Please select at least one difficulty level.");
       return;
@@ -180,11 +199,11 @@ function HomeContent() {
     setPartyCode("");
     setUsername("");
     setMessage("");
+    setLeaveLoading(false);
   };
 
   return (
     <div onMouseMove={handleMouseMove} className="page-wrapper">
-      {/* Grid background overlay with increased z-index */}
       <div
         className="grid-background"
         style={
@@ -194,12 +213,16 @@ function HomeContent() {
           } as React.CSSProperties
         }
       />
-      {/* NEW: wrap main content in a container with higher z-index */}
       <div className="content-wrapper">
-        {/* ...existing main content... */}
         <div className="min-h-screen flex items-center justify-center p-6 no-bg transition-colors relative">
-          {showBanner && message && (
-            <div className="absolute top-0 left-0 w-full flex justify-center p-4 transition-all">
+          {message && (
+            <div
+              className="absolute top-0 left-0 w-full flex justify-center p-4"
+              style={{
+                opacity: showBanner ? 1 : 0,
+                transition: "opacity 500ms ease",
+              }}
+            >
               <div
                 className={`${
                   goodBanner
@@ -242,102 +265,115 @@ function HomeContent() {
                 className="w-full px-4 py-3 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
               />
             </div>
-            {partyStatus === PartyStatus.UNJOINED && (
-              <div className="flex flex-col space-y-3 mb-6">
-                <button
-                  onClick={createParty}
-                  className="w-full bg-transparent border-2 border-gray-300 text-white py-3 rounded-lg transition duration-500 hover:bg-blue-600 hover:border-blue-600"
-                >
-                  Create Party
-                </button>
-                <button
-                  onClick={joinParty}
-                  className="w-full bg-transparent border-2 border-gray-300 text-white py-3 rounded-lg transition duration-500 hover:bg-green-600 hover:border-green-600"
-                >
-                  Join Party
-                </button>
-              </div>
-            )}
-            {partyStatus !== PartyStatus.UNJOINED && (
-              <div className="transition-all duration-500 transform translate-y-0 opacity-100 mb-6">
-                <div className="mt-4 flex items-center space-x-6">
-                  <label className="flex items-center space-x-1">
-                    <input
-                      type="checkbox"
-                      className="appearance-none w-5 h-5 border-2 border-gray-300 rounded-sm transition duration-300 checked:bg-blue-400 checked:border-transparent"
-                      checked={easy}
-                      onChange={(e) => setEasy(e.target.checked)}
-                      disabled={partyStatus !== PartyStatus.CREATED}
-                    />
-                    <span className="text-gray-800 dark:text-gray-200">
-                      Easy
-                    </span>
-                  </label>
-                  <label className="flex items-center space-x-1">
-                    <input
-                      type="checkbox"
-                      className="appearance-none w-5 h-5 border-2 border-gray-300 rounded-sm transition duration-300 checked:bg-green-400 checked:border-transparent"
-                      checked={medium}
-                      onChange={(e) => setMedium(e.target.checked)}
-                      disabled={partyStatus !== PartyStatus.CREATED}
-                    />
-                    <span className="text-gray-800 dark:text-gray-200">
-                      Medium
-                    </span>
-                  </label>
-                  <label className="flex items-center space-x-1">
-                    <input
-                      type="checkbox"
-                      className="appearance-none w-5 h-5 border-2 border-gray-300 rounded-sm transition duration-300 checked:bg-red-400 checked:border-transparent"
-                      checked={hard}
-                      onChange={(e) => setHard(e.target.checked)}
-                      disabled={partyStatus !== PartyStatus.CREATED}
-                    />
-                    <span className="text-gray-800 dark:text-gray-200">
-                      Hard
-                    </span>
-                  </label>
-                </div>
-                <div className="mt-4">
+            <div
+              className="flex flex-col space-y-3 mb-6 transition-all duration-500 overflow-hidden"
+              // Fades in if UNJOINED, fades out with height collapse otherwise.
+              style={{
+                maxHeight:
+                  partyStatus === PartyStatus.UNJOINED ? "150px" : "0px",
+                opacity: partyStatus === PartyStatus.UNJOINED ? 1 : 0,
+              }}
+            >
+              <Button
+                loading={createLoading}
+                setLoading={setCreateLoading}
+                handleClick={createParty}
+                color={Color("blue")}
+              >
+                Create Party
+              </Button>
+              <Button
+                loading={joinLoading}
+                setLoading={setJoinLoading}
+                handleClick={joinParty}
+                color={Color("green")}
+              >
+                Join Party
+              </Button>
+            </div>
+            <div
+              className="transition-all space-y-3 duration-500 overflow-hidden mb-6"
+              // Fades in if not UNJOINED, collapses when UNJOINED.
+              style={{
+                maxHeight:
+                  partyStatus !== PartyStatus.UNJOINED ? "500px" : "0px",
+                opacity: partyStatus !== PartyStatus.UNJOINED ? 1 : 0,
+              }}
+            >
+              <div className="mt-4 flex items-center space-x-6">
+                <label className="flex items-center space-x-1">
                   <input
-                    type="number"
-                    placeholder="Time limit (minutes)"
-                    value={timeLimit}
-                    onChange={(e) => setTimeLimit(e.target.value)}
+                    type="checkbox"
+                    className="appearance-none w-5 h-5 border-2 border-gray-300 rounded-sm transition duration-300 checked:bg-blue-400 checked:border-transparent"
+                    checked={easy}
+                    onChange={(e) => setEasy(e.target.checked)}
                     disabled={partyStatus !== PartyStatus.CREATED}
-                    className="w-full px-4 py-3 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition mb-3"
                   />
-                </div>
-                {/* Updated Start Game button */}
-                <button
-                  onClick={startGame}
-                  className="w-full bg-transparent border-2 border-gray-300 text-white py-3 rounded-lg transition duration-500 hover:bg-purple-700 hover:border-purple-700 mb-3"
-                >
-                  Start Game
-                </button>
-                {/* Updated Leave Game button */}
-                <button
-                  onClick={leaveGame}
-                  className="w-full bg-transparent border-2 border-gray-300 text-white py-3 rounded-lg transition duration-500 hover:bg-red-700 hover:border-red-700"
-                >
-                  Leave Game
-                </button>
-                <div className="mt-4">
-                  <h2 className="text-xl font-bold mb-2">Members</h2>
-                  <ul className="list-inside">
-                    {members.map((member, idx) => (
-                      <li key={idx} className="text-lg">
-                        {member}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                  <span className="text-gray-800 dark:text-gray-200">Easy</span>
+                </label>
+                <label className="flex items-center space-x-1">
+                  <input
+                    type="checkbox"
+                    className="appearance-none w-5 h-5 border-2 border-gray-300 rounded-sm transition duration-300 checked:bg-green-400 checked:border-transparent"
+                    checked={medium}
+                    onChange={(e) => setMedium(e.target.checked)}
+                    disabled={partyStatus !== PartyStatus.CREATED}
+                  />
+                  <span className="text-gray-800 dark:text-gray-200">
+                    Medium
+                  </span>
+                </label>
+                <label className="flex items-center space-x-1">
+                  <input
+                    type="checkbox"
+                    className="appearance-none w-5 h-5 border-2 border-gray-300 rounded-sm transition duration-300 checked:bg-red-400 checked:border-transparent"
+                    checked={hard}
+                    onChange={(e) => setHard(e.target.checked)}
+                    disabled={partyStatus !== PartyStatus.CREATED}
+                  />
+                  <span className="text-gray-800 dark:text-gray-200">Hard</span>
+                </label>
               </div>
-            )}
+              <div className="mt-4">
+                <input
+                  type="number"
+                  placeholder="Time limit (minutes)"
+                  value={timeLimit}
+                  onChange={(e) => setTimeLimit(e.target.value)}
+                  disabled={partyStatus !== PartyStatus.CREATED}
+                  className="w-full px-4 py-3 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition mb-3"
+                />
+              </div>
+              <Button
+                loading={startLoading}
+                setLoading={setStartLoading}
+                handleClick={startGame}
+                color={Color("blue")}
+              >
+                Start Game
+              </Button>
+              <Button
+                loading={leaveLoading}
+                setLoading={setLeaveLoading}
+                handleClick={leaveGame}
+                color={Color("red")}
+              >
+                Leave Party
+              </Button>
+              <div className="mt-4">
+                <h2 className="text-xl font-bold mb-2">Members</h2>
+                <ul className="list-inside">
+                  {members.map((member, idx) => (
+                    <li key={idx} className="text-lg">
+                      {member}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
           </div>
         </div>
       </div>
-      {/* Updated global styles */}
       <style jsx global>{`
         .grid-background {
           position: fixed;
@@ -346,7 +382,12 @@ function HomeContent() {
           width: 100vw;
           height: 100vh;
           pointer-events: none;
-          /* Show only grid lines */
+          z-index: 0;
+        }
+        .grid-background::before {
+          content: "";
+          position: absolute;
+          inset: 0;
           background-image: repeating-linear-gradient(
               0deg,
               rgba(200, 200, 200, 0.15) 0,
@@ -361,18 +402,38 @@ function HomeContent() {
               transparent 1px,
               transparent 20px
             );
-          /* Updated: smaller fade radius around the mouse */
+          pointer-events: none;
+        }
+        .grid-background::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background-image: repeating-linear-gradient(
+              0deg,
+              rgba(200, 200, 200, 0.15) 0,
+              rgba(200, 200, 200, 0.15) 1px,
+              transparent 1px,
+              transparent 20px
+            ),
+            repeating-linear-gradient(
+              90deg,
+              rgba(200, 200, 200, 0.15) 0,
+              rgba(200, 200, 200, 0.15) 1px,
+              transparent 1px,
+              transparent 20px
+            );
+          filter: brightness(0.8);
           -webkit-mask-image: radial-gradient(
             circle at var(--mouseX) var(--mouseY),
-            transparent 0px,
-            black 120px
+            white,
+            transparent 2000px
           );
           mask-image: radial-gradient(
             circle at var(--mouseX) var(--mouseY),
-            transparent 0px,
-            black 120px
+            white,
+            transparent 2000px
           );
-          z-index: 0;
+          pointer-events: none;
         }
         .page-wrapper {
           position: relative;
@@ -381,9 +442,8 @@ function HomeContent() {
         .content-wrapper {
           position: relative;
           z-index: 1;
-          background-color: transparent; /* let the grid show through */
+          background-color: transparent;
         }
-        /* Remove opaque backgrounds from main content */
         .no-bg {
           background: transparent !important;
         }
