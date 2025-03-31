@@ -104,6 +104,10 @@ async def join_party(sid: str, data: dict) -> None:
         await sio.emit("error", {"message": "Party is full!"}, to=sid)
         return
     
+    if username in [d["username"] for d in parties[party_code]["players"]]:
+        await sio.emit("error", {"message": "Username taken!"}, to=sid)
+        return
+    
     player = {"sid": sid, "username": username}
 
     parties[party_code]["players"].append(player)
@@ -289,8 +293,10 @@ async def disconnect(sid: str) -> None:
     for party_code, party in list(parties.items()):
         if party["host"] == sid or not party["players"]:
             await sio.leave_room(sid, party_code)
-            del parties[party_code]
             await sio.emit("announcement", {"message": "Party deleted due to disconnect."}, room=party_code)
+            await asyncio.sleep(2)
+            await sio.emit("leave_party", room=party_code)
+            del parties[party_code]
 
         for player in party["players"]:
             if player["sid"] == sid:

@@ -316,11 +316,13 @@ function GameContent() {
   };
 
   const handlePlayersClick = () => {
+    console.log("players key pressed");
     socket.emit("retrieve_players", { party_code: party });
-    setShowMembers(true);
+    setShowMembers((prev) => !prev);
   };
 
   const handleSpectateClick = (member: string) => {
+    setShowMembers(false);
     if (member === username) {
       setScreen(username);
       setCode(homeCode);
@@ -346,13 +348,13 @@ function GameContent() {
         </button>
       </div>
       {showMembers && (
-        <div className="absolute top-16 right-[17%] z-50" ref={modalRef}>
-          <div className="bg-white dark:bg-gray-800 p-6 rounded shadow-lg w-80">
+        <div className="absolute top-15 right-[18%] z-50" ref={modalRef}>
+          <div className="bg-white dark:bg-gray-700 p-6 rounded shadow-lg w-80">
             <ul>
               {members.map((member, index) => (
                 <li
                   key={index}
-                  className="flex justify-between items-center py-2 border-b border-gray-300 dark:border-gray-700"
+                  className="flex justify-between items-center py-2 border-b border-gray-300 dark:border-gray-400"
                 >
                   <span>{member}</span>
                   <button
