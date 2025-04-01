@@ -2,10 +2,18 @@
 import { useState, useRef, useEffect, Suspense } from "react";
 import { useGame } from "../../context/GameContext";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Problem, MessageData, GameData, TimeData } from "../../types";
+import {
+  Problem,
+  MessageData,
+  GameData,
+  TimeData,
+  PlayerData,
+} from "../../types";
 import socket from "../../socket";
 import Editor from "@monaco-editor/react";
 import parse from "html-react-parser";
+import Button from "../button";
+import color from "../colors";
 
 const getDifficultyColor = (difficulty: string) => {
   switch (difficulty.toLowerCase()) {
@@ -31,14 +39,16 @@ const starterCode = (problem: Problem) =>
 
 function GameContent() {
   const [consoleOutput, setConsoleOutput] = useState("Test case output");
-  const [chatMessages, setChatMessages] = useState([
+  const [chatMessages, setChatMessages] = useState<MessageData[]>([
     { message: "Game started!", bold: true, color: "" },
   ]);
   const [chatInput, setChatInput] = useState("");
+
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const lineNumbersRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const editorContainerRef = useRef<HTMLDivElement>(null);
+
   const { problem, username, setProblem } = useGame();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -46,6 +56,7 @@ function GameContent() {
   const initialTime = 0;
   const [timeLeft, setTimeLeft] = useState(initialTime);
   const [buttonDisabled, setButtonDisabled] = useState(false);
+  const [skipButtonDisabled, setSkipButtonDisabled] = useState(false);
   const [passedAll, setPassedAll] = useState(false);
 
   const [code, setCode] = useState(starterCode(problem));
@@ -62,8 +73,14 @@ function GameContent() {
   const modalRef = useRef<HTMLDivElement>(null);
   const [members, setMembers] = useState<string[]>([]);
   const [screen, setScreen] = useState<string>(username);
+
   const [homeCode, setHomeCode] = useState(starterCode(problem));
   const [homeConsole, setHomeConsole] = useState("Test case output");
+
+  const [runLoading, setRunLoading] = useState(false);
+  const [leaveLoading, setLeaveLoading] = useState(false);
+  const [skipLoading, setSkipLoading] = useState(false);
+  const [playersLoading, setPlayersLoading] = useState(false);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -153,12 +170,20 @@ function GameContent() {
     });
 
     socket.on("game_started", (data: GameData) => {
+      setSkipButtonDisabled(false);
       setProblem(data.problem);
       setScreen(username);
       setCode(starterCode(data.problem));
       setConsoleOutput("Test case output");
+      setHomeCode(starterCode(data.problem));
+      setHomeConsole("Test case output");
       setPassedAll(false);
       retrieveTime();
+      socket.emit("code_update", { party_code: party, code: code });
+      socket.emit("console_update", {
+        party_code: party,
+        console_output: consoleOutput,
+      });
       router.push(`/game?party=${encodeURIComponent(data.party_code)}`);
     });
 
@@ -170,16 +195,16 @@ function GameContent() {
       setPassedAll(true);
     });
 
-    socket.on("send_players", (data) => {
-      setMembers(data.players);
+    socket.on("send_players", (data: PlayerData) => {
+      setMembers(data.players ? data.players : []);
     });
 
-    socket.on("updated_code", (data) => {
-      setCode(data.new_code);
+    socket.on("updated_code", (data: MessageData) => {
+      setCode(data.message);
     });
 
-    socket.on("updated_console", (data) => {
-      setConsoleOutput(data.new_text);
+    socket.on("updated_console", (data: MessageData) => {
+      setConsoleOutput(data.message);
     });
 
     return () => {
@@ -265,6 +290,7 @@ function GameContent() {
   };
 
   const skipProblem = () => {
+    setSkipButtonDisabled(true);
     socket.emit("skip_problem", { party_code: party });
     console.log("Skip problem clicked");
   };
@@ -275,7 +301,7 @@ function GameContent() {
     }
     const newCode = e || "";
     setCode(newCode);
-    setHomeCode(newCode); // update own code storage
+    setHomeCode(newCode);
     keyCounterRef.current++;
     if (codeUpdateTimer) {
       clearTimeout(codeUpdateTimer);
@@ -297,11 +323,13 @@ function GameContent() {
   };
 
   const handlePlayersClick = () => {
+    console.log("players key pressed");
     socket.emit("retrieve_players", { party_code: party });
-    setShowMembers(true);
+    setShowMembers((prev) => !prev);
   };
 
   const handleSpectateClick = (member: string) => {
+    setShowMembers(false);
     if (member === username) {
       setScreen(username);
       setCode(homeCode);
@@ -327,13 +355,13 @@ function GameContent() {
         </button>
       </div>
       {showMembers && (
-        <div className="absolute top-16 right-[17%] z-50" ref={modalRef}>
-          <div className="bg-white dark:bg-gray-800 p-6 rounded shadow-lg w-80">
+        <div className="absolute top-15 right-[18%] z-50" ref={modalRef}>
+          <div className="bg-white dark:bg-gray-700 p-6 rounded shadow-lg w-80">
             <ul>
               {members.map((member, index) => (
                 <li
                   key={index}
-                  className="flex justify-between items-center py-2 border-b border-gray-300 dark:border-gray-700"
+                  className="flex justify-between items-center py-2 border-b border-gray-300 dark:border-gray-400"
                 >
                   <span>{member}</span>
                   <button
@@ -365,7 +393,7 @@ function GameContent() {
         <div className="w-full h-[75vh] mx-auto mr-[16.66%]">
           <h1 className="text-4xl mb-8 text-center">Leetduel</h1>
           <div className="flex flex-col md:flex-row h-full gap-2 w-full">
-            <div className="relative md:w-1/2 bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+            <div className="relative md:w-1/2 bg-white dark:bg-gray-800 shadow rounded-lg p-6 border-1 border-gray-500">
               <h2 className="text-2xl font-semibold mb-4">{problem?.name}</h2>
               <h2 className="text-l font-semibold mb-4">
                 <span
@@ -391,7 +419,7 @@ function GameContent() {
                 className={`absolute bottom-4 right-4 ${
                   screen !== username || buttonDisabled
                     ? "bg-gray-500 cursor-not-allowed"
-                    : "bg-indigo-600 hover:bg-indigo-700"
+                    : "bg-blue-600 hover:bg-blue-700"
                 } text-white py-2 px-4 rounded-lg transition`}
               >
                 Run Code
@@ -409,6 +437,7 @@ function GameContent() {
                     fontSize: 15,
                     padding: { top: 16, bottom: 16 },
                     minimap: { enabled: false },
+                    inlineSuggest: { enabled: false },
                     folding: false,
                     readOnly: screen !== username,
                   }}
@@ -473,10 +502,16 @@ function GameContent() {
           </button>
           <button
             onClick={skipProblem}
+            disabled={skipButtonDisabled}
             className="bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded"
           >
             Skip Problem
           </button>
+        </div>
+        <div className="fixed bottom-4 right-[18%] z-50">
+          {/* <button className="bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded">
+            Help
+          </button> */}
         </div>
       </div>
     </>

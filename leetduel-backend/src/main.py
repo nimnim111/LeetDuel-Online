@@ -104,6 +104,10 @@ async def join_party(sid: str, data: dict) -> None:
         await sio.emit("error", {"message": "Party is full!"}, to=sid)
         return
     
+    if username in [d["username"] for d in parties[party_code]["players"]]:
+        await sio.emit("error", {"message": "Username taken!"}, to=sid)
+        return
+    
     player = {"sid": sid, "username": username}
 
     parties[party_code]["players"].append(player)
@@ -117,7 +121,6 @@ async def join_party(sid: str, data: dict) -> None:
         }, 
         room=party_code,
     )
-    print(f"players being added:\n{parties[party_code]['players']}")
 
     if parties[party_code]["status"] == "in_progress":
         player["passed"] = False
@@ -177,7 +180,7 @@ async def submit_code(sid: str, data: dict) -> None:
     code = data["code"]
     problem_obj = parties[party_code]["problem"]
     problem = Problem(language_id, problem_obj)
-    color = "Red"
+    color = "#EF5350"
 
     r = problem.submit_code(code)
 
@@ -192,7 +195,7 @@ async def submit_code(sid: str, data: dict) -> None:
             message_to_client += "\n" + r["failed_test"] + (f" \nstdout: {r['stdout']}")
 
     if r["status"] == "Accepted":
-        color = "green"
+        color = "#66BB6A"
         for player in parties[party_code]["players"]:
             if player["sid"] == sid:
                 player["passed"] = True
@@ -289,8 +292,10 @@ async def disconnect(sid: str) -> None:
     for party_code, party in list(parties.items()):
         if party["host"] == sid or not party["players"]:
             await sio.leave_room(sid, party_code)
-            del parties[party_code]
             await sio.emit("announcement", {"message": "Party deleted due to disconnect."}, room=party_code)
+            await asyncio.sleep(2)
+            await sio.emit("leave_party", room=party_code)
+            del parties[party_code]
 
         for player in party["players"]:
             if player["sid"] == sid:
@@ -314,7 +319,7 @@ async def skip_problem(sid: str, data: dict) -> None:
         return
     
     await sio.emit("announcement", {"message": "Problem is being skipped..."}, room=party_code)
-    await asyncio.sleep(2)
+    await asyncio.sleep(1)
 
     for player in party["players"]:
         player["passed"] = False
@@ -345,7 +350,7 @@ async def code_update(sid: str, data: dict) -> None:
         if player["sid"] == sid:
             player["code"] = new_code
 
-    await sio.emit("updated_code", {"new_code": new_code}, room=f"{sid}:spectate")
+    await sio.emit("updated_code", {"message": new_code}, room=f"{sid}:spectate")
 
 
 @sio.event
@@ -360,7 +365,7 @@ async def console_update(sid: str, data: dict) -> None:
         if player["sid"] == sid:
             player["console_output"] = new_text
 
-    await sio.emit("updated_console", {"new_text": new_text}, room=f"{sid}:spectate")
+    await sio.emit("updated_console", {"message": new_text}, room=f"{sid}:spectate")
 
 
 @sio.event
@@ -390,8 +395,8 @@ async def retrieve_code(sid: str, data: dict) -> None:
     if sid != spectate_sid:
         await sio.enter_room(sid, f"{spectate_sid}:spectate")
 
-    await sio.emit("updated_console", {"new_text": new_text}, room=f"{spectate_sid}:spectate")
-    await sio.emit("updated_code", {"new_code": new_code}, room=f"{spectate_sid}:spectate")
+    await sio.emit("updated_console", {"message": new_text}, room=f"{spectate_sid}:spectate")
+    await sio.emit("updated_code", {"message": new_code}, room=f"{spectate_sid}:spectate")
 
 
 @sio.event
