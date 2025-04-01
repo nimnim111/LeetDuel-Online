@@ -12,6 +12,8 @@ import {
 import socket from "../../socket";
 import Editor from "@monaco-editor/react";
 import parse from "html-react-parser";
+import Button from "../button";
+import color from "../colors";
 
 const getDifficultyColor = (difficulty: string) => {
   switch (difficulty.toLowerCase()) {
@@ -74,6 +76,11 @@ function GameContent() {
 
   const [homeCode, setHomeCode] = useState(starterCode(problem));
   const [homeConsole, setHomeConsole] = useState("Test case output");
+
+  const [runLoading, setRunLoading] = useState(false);
+  const [leaveLoading, setLeaveLoading] = useState(false);
+  const [skipLoading, setSkipLoading] = useState(false);
+  const [playersLoading, setPlayersLoading] = useState(false);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -386,7 +393,7 @@ function GameContent() {
         <div className="w-full h-[75vh] mx-auto mr-[16.66%]">
           <h1 className="text-4xl mb-8 text-center">Leetduel</h1>
           <div className="flex flex-col md:flex-row h-full gap-2 w-full">
-            <div className="relative md:w-1/2 bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+            <div className="relative md:w-1/2 bg-white dark:bg-gray-800 shadow rounded-lg p-6 border-1 border-gray-500">
               <h2 className="text-2xl font-semibold mb-4">{problem?.name}</h2>
               <h2 className="text-l font-semibold mb-4">
                 <span
@@ -412,7 +419,7 @@ function GameContent() {
                 className={`absolute bottom-4 right-4 ${
                   screen !== username || buttonDisabled
                     ? "bg-gray-500 cursor-not-allowed"
-                    : "bg-indigo-600 hover:bg-indigo-700"
+                    : "bg-blue-600 hover:bg-blue-700"
                 } text-white py-2 px-4 rounded-lg transition`}
               >
                 Run Code
@@ -430,6 +437,7 @@ function GameContent() {
                     fontSize: 15,
                     padding: { top: 16, bottom: 16 },
                     minimap: { enabled: false },
+                    inlineSuggest: { enabled: false },
                     folding: false,
                     readOnly: screen !== username,
                   }}
@@ -501,9 +509,9 @@ function GameContent() {
           </button>
         </div>
         <div className="fixed bottom-4 right-[18%] z-50">
-          <button className="bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded">
+          {/* <button className="bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded">
             Help
-          </button>
+          </button> */}
         </div>
       </div>
     </>

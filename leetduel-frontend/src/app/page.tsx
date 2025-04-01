@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import socket from "../socket";
 import { useGame } from "../context/GameContext";
@@ -36,11 +36,28 @@ function HomeContent() {
   const [startLoading, setStartLoading] = useState(false);
   const [leaveLoading, setLeaveLoading] = useState(false);
 
-  // NEW: add state for mouse position and a handler to update it
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  // New delayed mouse state and ref for immediate mouse position
+  const [delayedMousePos, setDelayedMousePos] = useState({ x: 0, y: 0 });
+  const mousePosRef = useRef({ x: 0, y: 0 });
+
+  // Modified mouse move handler to update the ref only
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    setMousePos({ x: e.clientX, y: e.clientY });
+    mousePosRef.current = { x: e.clientX, y: e.clientY };
   };
+
+  // New effect for animating the delayed mouse position
+  useEffect(() => {
+    let animationFrameId: number;
+    const updateDelayedPos = () => {
+      setDelayedMousePos((prev) => ({
+        x: prev.x + (mousePosRef.current.x - prev.x) * 0.05, // reduced factor from 0.1 to 0.05
+        y: prev.y + (mousePosRef.current.y - prev.y) * 0.05, // reduced factor from 0.1 to 0.05
+      }));
+      animationFrameId = requestAnimationFrame(updateDelayedPos);
+    };
+    animationFrameId = requestAnimationFrame(updateDelayedPos);
+    return () => cancelAnimationFrame(animationFrameId);
+  }, []);
 
   useEffect(() => {
     const qpParty = searchParams.get("party");
@@ -99,11 +116,11 @@ function HomeContent() {
       setProblem(data.problem);
       setPartyCode(data.party_code);
       router.push(`/game?party=${encodeURIComponent(data.party_code)}`);
-      setStartLoading(false);
     });
     socket.on("error", (data: ErrorData) => {
+      setJoinLoading(false);
+      setStartLoading(false);
       if (data.message === "Party not found") {
-        setJoinLoading(false);
         setPartyStatus(PartyStatus.UNJOINED);
       }
       setGoodBanner(false);
@@ -208,8 +225,8 @@ function HomeContent() {
         className="grid-background"
         style={
           {
-            "--mouseX": mousePos.x + "px",
-            "--mouseY": mousePos.y + "px",
+            "--mouseX": delayedMousePos.x + "px",
+            "--mouseY": delayedMousePos.y + "px",
           } as React.CSSProperties
         }
       />
@@ -278,7 +295,7 @@ function HomeContent() {
                 loading={createLoading}
                 setLoading={setCreateLoading}
                 handleClick={createParty}
-                color={Color("blue")}
+                color={Color("green")}
               >
                 Create Party
               </Button>
@@ -286,7 +303,7 @@ function HomeContent() {
                 loading={joinLoading}
                 setLoading={setJoinLoading}
                 handleClick={joinParty}
-                color={Color("green")}
+                color={Color("blue")}
               >
                 Join Party
               </Button>
@@ -374,6 +391,14 @@ function HomeContent() {
           </div>
         </div>
       </div>
+      <a
+        href="https://github.com/jeffreykim/leetduel"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="github-logo"
+      >
+        <img src="/githublogo.png" alt="GitHub Logo" />
+      </a>
       <style jsx global>{`
         .grid-background {
           position: fixed;
@@ -422,16 +447,16 @@ function HomeContent() {
               transparent 1px,
               transparent 20px
             );
-          filter: brightness(0.8);
+          filter: brightness(1);
           -webkit-mask-image: radial-gradient(
             circle at var(--mouseX) var(--mouseY),
             white,
-            transparent 2000px
+            transparent 1000px
           );
           mask-image: radial-gradient(
             circle at var(--mouseX) var(--mouseY),
             white,
-            transparent 2000px
+            transparent 1000px
           );
           pointer-events: none;
         }
@@ -446,6 +471,22 @@ function HomeContent() {
         }
         .no-bg {
           background: transparent !important;
+        }
+        /* New styles for GitHub logo */
+        .github-logo {
+          position: fixed;
+          bottom: 10px;
+          left: 10px;
+          z-index: 2;
+          transition: transform 0.3s, opacity 0.3s;
+        }
+        .github-logo img {
+          width: 40px;
+          height: 40px;
+        }
+        .github-logo:hover {
+          transform: scale(1.1);
+          opacity: 0.8;
         }
       `}</style>
     </div>

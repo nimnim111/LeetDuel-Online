@@ -131,11 +131,6 @@ print(int((time.time_ns() - start_time) / 1e6))
         r["passed test cases"] = count
         
         if failed_index != -1:
-            try:
-                print(eval(test_cases[failed_index]['input']))
-                print(json.dumps(eval(test_cases[failed_index]['input'])))
-            except Exception as e:
-                print(e)
             r["failed_test"] = f"Input: {str(eval(test_cases[failed_index]['input']))}\nExpected {test_cases[failed_index]['output']}, got {data[failed_index]}"
 
         return r

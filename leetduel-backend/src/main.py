@@ -180,7 +180,7 @@ async def submit_code(sid: str, data: dict) -> None:
     code = data["code"]
     problem_obj = parties[party_code]["problem"]
     problem = Problem(language_id, problem_obj)
-    color = "Red"
+    color = "#EF5350"
 
     r = problem.submit_code(code)
 
@@ -195,7 +195,7 @@ async def submit_code(sid: str, data: dict) -> None:
             message_to_client += "\n" + r["failed_test"] + (f" \nstdout: {r['stdout']}")
 
     if r["status"] == "Accepted":
-        color = "green"
+        color = "#66BB6A"
         for player in parties[party_code]["players"]:
             if player["sid"] == sid:
                 player["passed"] = True
