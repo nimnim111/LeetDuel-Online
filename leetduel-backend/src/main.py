@@ -96,6 +96,14 @@ async def join_party(sid: str, data: dict) -> None:
     party_code = data["party_code"]
     username = data["username"]
 
+    if party_code == "":
+        if not parties:
+            await sio.emit("error", {"message": "No parties to join"}, to=sid)
+            return
+
+        party_code = random.choice(list(parties.keys()))
+        await sio.emit("set_party_code", {"party_code": party_code}, to=sid)
+
     if party_code not in parties:
         await sio.emit("error", {"message": "Party not found"}, to=sid)
         return

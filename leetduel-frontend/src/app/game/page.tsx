@@ -12,8 +12,6 @@ import {
 import socket from "../../socket";
 import Editor from "@monaco-editor/react";
 import parse from "html-react-parser";
-import Button from "../button";
-import color from "../colors";
 
 const getDifficultyColor = (difficulty: string) => {
   switch (difficulty.toLowerCase()) {
