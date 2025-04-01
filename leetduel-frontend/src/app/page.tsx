@@ -36,22 +36,19 @@ function HomeContent() {
   const [startLoading, setStartLoading] = useState(false);
   const [leaveLoading, setLeaveLoading] = useState(false);
 
-  // New delayed mouse state and ref for immediate mouse position
   const [delayedMousePos, setDelayedMousePos] = useState({ x: 0, y: 0 });
   const mousePosRef = useRef({ x: 0, y: 0 });
 
-  // Modified mouse move handler to update the ref only
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     mousePosRef.current = { x: e.clientX, y: e.clientY };
   };
 
-  // New effect for animating the delayed mouse position
   useEffect(() => {
     let animationFrameId: number;
     const updateDelayedPos = () => {
       setDelayedMousePos((prev) => ({
-        x: prev.x + (mousePosRef.current.x - prev.x) * 0.05, // reduced factor from 0.1 to 0.05
-        y: prev.y + (mousePosRef.current.y - prev.y) * 0.05, // reduced factor from 0.1 to 0.05
+        x: prev.x + (mousePosRef.current.x - prev.x) * 0.05,
+        y: prev.y + (mousePosRef.current.y - prev.y) * 0.05,
       }));
       animationFrameId = requestAnimationFrame(updateDelayedPos);
     };
@@ -284,7 +281,6 @@ function HomeContent() {
             </div>
             <div
               className="flex flex-col space-y-3 mb-6 transition-all duration-500 overflow-hidden"
-              // Fades in if UNJOINED, fades out with height collapse otherwise.
               style={{
                 maxHeight:
                   partyStatus === PartyStatus.UNJOINED ? "150px" : "0px",
@@ -310,7 +306,6 @@ function HomeContent() {
             </div>
             <div
               className="transition-all space-y-3 duration-500 overflow-hidden mb-6"
-              // Fades in if not UNJOINED, collapses when UNJOINED.
               style={{
                 maxHeight:
                   partyStatus !== PartyStatus.UNJOINED ? "500px" : "0px",
