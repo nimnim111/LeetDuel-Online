@@ -126,6 +126,10 @@ function HomeContent() {
     socket.on("activate_settings", () => {
       setPartyStatus(PartyStatus.CREATED);
     });
+    socket.on("set_party_code", (data: GameData) => {
+      setLocalPartyCode(data.party_code);
+      setPartyCode(data.party_code);
+    });
     return () => {
       socket.off("party_created");
       socket.off("players_update");
@@ -134,6 +138,7 @@ function HomeContent() {
       socket.off("game_started");
       socket.off("error");
       socket.off("activate_settings");
+      socket.off("set_party_code");
     };
   }, [router, setProblem, setPartyCode, setUsername, username, message]);
 
@@ -167,11 +172,9 @@ function HomeContent() {
   };
 
   const joinParty = () => {
-    if (username && localPartyCode) {
+    if (username) {
       socket.emit("join_party", { username, party_code: localPartyCode });
-      return;
     }
-    setJoinLoading(false);
   };
 
   const startGame = () => {
@@ -257,7 +260,7 @@ function HomeContent() {
               </div>
             </div>
           )}
-          <div className="bg-white dark:bg-gray-900 border-1 border-gray-300 dark:border-gray-300 transition duration-500 hover:border-green-400 shadow-lg rounded-xl p-8 w-full max-w-md font-inter">
+          <div className="bg-white dark:bg-gray-900 border-1 border-black dark:border-gray-300 transition duration-500 hover:border-green-400 shadow-lg rounded-xl p-8 w-full max-w-md font-inter">
             <h1 className="text-3xl text-gray-900 dark:text-white mb-6 text-center">
               Leetduel
             </h1>

@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 
 from .submit import Problem
 from .database import SessionLocal
-from .crud import get_problem
+from .crud import get_problem, increment_reports
 from .config import port
 
 from src.routes.problems import router as problems_router
@@ -36,7 +36,7 @@ def get_random_problem(difficulty: list[bool], problem_id: int = None) -> dict:
 
     try:
         problem = get_problem(db, difficulty, problem_id)
-        return {"name": problem.problem_name, "description": problem.problem_description, "difficulty": problem.problem_difficulty, "test_cases": problem.test_cases, "function_signature": problem.function_signature, "any_order": problem.any_order}
+        return {"name": problem.problem_name, "description": problem.problem_description, "difficulty": problem.problem_difficulty, "test_cases": problem.test_cases, "function_signature": problem.function_signature, "any_order": problem.any_order, "reports": problem.reports}
     
     finally:
         db.close()
@@ -95,6 +95,14 @@ async def join_party(sid: str, data: dict) -> None:
     print(f"join_party event received from {sid}: {data}")
     party_code = data["party_code"]
     username = data["username"]
+
+    if party_code == "":
+        if not parties:
+            await sio.emit("error", {"message": "No parties to join"}, to=sid)
+            return
+
+        party_code = random.choice(list(parties.keys()))
+        await sio.emit("set_party_code", {"party_code": party_code}, to=sid)
 
     if party_code not in parties:
         await sio.emit("error", {"message": "Party not found"}, to=sid)
@@ -371,6 +379,9 @@ async def console_update(sid: str, data: dict) -> None:
 @sio.event
 async def retrieve_players(sid: str, data: dict) -> None:
     party_code = data["party_code"]
+    if party_code not in parties:
+        return
+    
     players = parties[party_code]["players"]
     player_usernames = [d["username"] for d in players]
     print(f"retrieve_players event received from {sid}, players: {player_usernames}")
@@ -404,6 +415,20 @@ async def leave_spectate_rooms(sid: str, data: dict) -> None:
     party_code = data["party_code"]
     for player in parties[party_code]["players"]:
         await sio.leave_room(sid, f"{player['sid']}:spectate")
+
+
+@sio.event
+async def report_problem(sid: str, data: dict) -> None:
+    print(f"Report problem event received from {sid}")
+    party_code = data["party_code"]
+    if party_code not in parties:
+        return
+    
+    db = SessionLocal()
+    try:
+        increment_reports(db, parties[party_code]["problem"]["name"])
+    finally:
+        db.close()
 
 
 @app.get("/")

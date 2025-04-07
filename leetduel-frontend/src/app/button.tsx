@@ -55,7 +55,7 @@ const Button: React.FC<ButtonProps> = ({
         backgroundColor: hovered ? color : undefined,
         borderColor: hovered ? color : undefined,
       }}
-      className="w-full bg-transparent border-2 border-gray-300 text-white py-3 rounded-lg transition duration-500 cursor-pointer"
+      className="w-full bg-transparent border-2 border-gray-900 dark:border-gray-300 text-gray-900 dark:text-white py-3 rounded-lg transition duration-500 cursor-pointer"
     >
       {loading ? <Spinner /> : children}
     </button>

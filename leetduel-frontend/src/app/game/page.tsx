@@ -12,8 +12,6 @@ import {
 import socket from "../../socket";
 import Editor from "@monaco-editor/react";
 import parse from "html-react-parser";
-import Button from "../button";
-import color from "../colors";
 
 const getDifficultyColor = (difficulty: string) => {
   switch (difficulty.toLowerCase()) {
@@ -77,6 +75,10 @@ function GameContent() {
   const [homeCode, setHomeCode] = useState(starterCode(problem));
   const [homeConsole, setHomeConsole] = useState("Test case output");
 
+  const [showHelp, setShowHelp] = useState(false);
+  const helpModalRef = useRef<HTMLDivElement>(null);
+  const [reported, setReported] = useState(false);
+
   const [runLoading, setRunLoading] = useState(false);
   const [leaveLoading, setLeaveLoading] = useState(false);
   const [skipLoading, setSkipLoading] = useState(false);
@@ -91,12 +93,19 @@ function GameContent() {
       ) {
         setShowMembers(false);
       }
+      if (
+        showHelp &&
+        helpModalRef.current &&
+        !helpModalRef.current.contains(event.target as Node)
+      ) {
+        setShowHelp(false);
+      }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [showMembers]);
+  }, [showMembers, showHelp]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -178,6 +187,7 @@ function GameContent() {
       setHomeCode(starterCode(data.problem));
       setHomeConsole("Test case output");
       setPassedAll(false);
+      setReported(false);
       retrieveTime();
       socket.emit("code_update", { party_code: party, code: code });
       socket.emit("console_update", {
@@ -344,12 +354,17 @@ function GameContent() {
     socket.emit("retrieve_code", { party_code: party, username: member });
   };
 
+  const report = () => {
+    socket.emit("report_problem", { party_code: party });
+    setReported(true);
+  };
+
   return (
     <>
       <div className="fixed top-4 right-[18%] z-50">
         <button
           onClick={handlePlayersClick}
-          className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md shadow"
+          className="bg-blue-600 transition hover:bg-blue-700 text-white py-2 px-4 rounded-md shadow"
         >
           Players
         </button>
@@ -367,9 +382,9 @@ function GameContent() {
                   <button
                     className={`px-2 py-1 rounded text-white ${
                       member === username
-                        ? "bg-green-600 hover:bg-green-700"
+                        ? "bg-green-500 transition hover:bg-green-600"
                         : passedAll
-                        ? "bg-green-600 hover:bg-green-700"
+                        ? "bg-green-500 transition hover:bg-green-600"
                         : "bg-gray-500 cursor-not-allowed"
                     }`}
                     disabled={member === username ? false : !passedAll}
@@ -485,7 +500,7 @@ function GameContent() {
                 />
                 <button
                   onClick={sendMessage}
-                  className="flex-shrink-0 bg-blue-600 hover:bg-blue-700 text-white px-4 rounded-r-lg transition"
+                  className="flex-shrink-0 bg-blue-600 transition hover:bg-blue-700 text-white px-4 rounded-r-lg transition"
                 >
                   Send
                 </button>
@@ -496,22 +511,47 @@ function GameContent() {
         <div className="fixed bottom-0 left-0 m-4 flex gap-2">
           <button
             onClick={leaveGame}
-            className="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded"
+            className="bg-red-600 transition hover:bg-red-700 text-white py-2 px-4 rounded"
           >
             Leave Game
           </button>
           <button
             onClick={skipProblem}
             disabled={skipButtonDisabled}
-            className="bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded"
+            className="bg-gray-600 transition hover:bg-gray-700 text-white py-2 px-4 rounded"
           >
             Skip Problem
           </button>
         </div>
+        {showHelp && (
+          <div
+            className="absolute bottom-15 right-[18%] z-50"
+            ref={helpModalRef}
+          >
+            <div className="bg-white dark:bg-gray-700 p-6 rounded shadow-lg w-max">
+              <button
+                className={`ml-2 ${
+                  reported
+                    ? "bg-gray-500"
+                    : "bg-red-600 transition hover:bg-red-700"
+                } text-white py-2 px-4 rounded`}
+                disabled={reported}
+                onClick={report}
+              >
+                {reported
+                  ? "Broken Test Cases Reported"
+                  : "Report Broken Test Case"}
+              </button>
+            </div>
+          </div>
+        )}
         <div className="fixed bottom-4 right-[18%] z-50">
-          {/* <button className="bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded">
+          <button
+            className="bg-gray-600 transition hover:bg-gray-700 text-white py-2 px-4 rounded"
+            onClick={() => setShowHelp(true)}
+          >
             Help
-          </button> */}
+          </button>
         </div>
       </div>
     </>
