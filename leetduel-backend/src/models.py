@@ -13,6 +13,7 @@ class Problem(Base):
     test_cases = Column(JSONB)
     function_signature = Column(String)
     any_order = Column(Boolean)
+    reports = Column(Integer)
 
 class Party(Base):
     __tablename__ = "parties"
