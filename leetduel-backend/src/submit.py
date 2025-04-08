@@ -1,9 +1,11 @@
 import json
 import subprocess
 import time
+import requests
 from ratelimit import limits, RateLimitException
 
 from src.classes.ListNode import ListNode, linkedList
+from src.config import code_execution_url
 
 
 
@@ -66,10 +68,10 @@ print(int((time.time_ns() - start_time) / 1e6))
         try:
             result = self.run_subprocess(code, timeout)
 
-            if result.returncode != 0:
-                return {"message": result.stderr, "status": "Failed"}
+            if result["stderr"]:
+                return {"message": result["stderr"], "status": "Failed"}
             
-            return self.check_test_cases(result.stdout)
+            return self.check_test_cases(result["stdout"])
 
         except subprocess.TimeoutExpired:
             return {"message": "Time limit exceeded", "status": "Failed"}
@@ -138,10 +140,14 @@ print(int((time.time_ns() - start_time) / 1e6))
 
     @limits(calls=5, period=10)
     def run_subprocess(self, code, timeout):
-        return subprocess.run(
-            ["python3", "-c", code],
-            input=self.stdinput,
-            capture_output=True,
-            text=True,
-            timeout=timeout
-        )
+        if code_execution_url == "":
+            return subprocess.run(
+                ["python3", "-c", code],
+                input=self.stdinput,
+                capture_output=True,
+                text=True,
+                timeout=timeout
+            )
+        
+        response = requests.post(code_execution_url, json={"code": code, "timeout": timeout, "stdinput": self.stdinput})
+        return response.json()

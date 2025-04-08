@@ -79,11 +79,6 @@ function GameContent() {
   const helpModalRef = useRef<HTMLDivElement>(null);
   const [reported, setReported] = useState(false);
 
-  const [runLoading, setRunLoading] = useState(false);
-  const [leaveLoading, setLeaveLoading] = useState(false);
-  const [skipLoading, setSkipLoading] = useState(false);
-  const [playersLoading, setPlayersLoading] = useState(false);
-
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (

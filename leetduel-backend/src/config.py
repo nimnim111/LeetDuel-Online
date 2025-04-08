@@ -9,3 +9,5 @@ if not database_url:
     raise ValueError("DATABASE_URL environment variable is not set")
 
 port = os.getenv("PORT") or 8000
+
+code_execution_url = os.getenv("CODE_EXECUTION_URL") or ""
