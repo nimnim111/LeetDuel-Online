@@ -150,5 +150,4 @@ print(int((time.time_ns() - start_time) / 1e6))
             )
         
         response = requests.post(code_execution_url, json={"code": code, "timeout": timeout, "stdinput": self.stdinput})
-        print(response.json())
         return response.json()
