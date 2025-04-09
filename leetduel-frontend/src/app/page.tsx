@@ -23,7 +23,7 @@ function HomeContent() {
   const [partyStatus, setPartyStatus] = useState<PartyStatus>(PartyStatus.UNJOINED);
   const [localPartyCode, setLocalPartyCode] = useState("");
   const [timeLimit, setTimeLimit] = useState("");
-  const [rounds, setRounds] = useState("");
+  const [rounds, setRounds] = useState("1");
   const [easy, setEasy] = useState(true);
   const [medium, setMedium] = useState(true);
   const [hard, setHard] = useState(true);
@@ -177,7 +177,7 @@ function HomeContent() {
   };
 
   const startGame = () => {
-    if (!timeLimit || isNaN(Number(timeLimit))) {
+    if (isNaN(Number(timeLimit))) {
       setStartLoading(false);
       setGoodBanner(false);
       setMessage("Please enter a valid time limit.");
@@ -294,9 +294,8 @@ function HomeContent() {
                 </Button>
               </div>
             )}
-            {partyStatus !== PartyStatus.UNJOINED && (
-              <div className="transition-all space-y-3 duration-500 overflow-hidden mb-6">
-                <div className="mt-4 flex items-center space-x-6">
+            <div className={`transition-all space-y-3 duration-500 overflow-hidden mb-6 ${partyStatus === PartyStatus.UNJOINED ? "max-h-0 opacity-0 scale-95" : "max-h-[2000px] opacity-100 scale-100"}`}>
+              <div className="mt-4 flex items-center space-x-6">
                   <label className="flex items-center space-x-1">
                     <input
                       type="checkbox"
@@ -363,7 +362,6 @@ function HomeContent() {
                   </ul>
                 </div>
               </div>
-            )}
           </div>
         </div>
       </div>

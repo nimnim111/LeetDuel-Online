@@ -188,7 +188,7 @@ async def start_game(sid: str, data: dict, difficulties: list[bool] = []) -> Non
     party_code = data["party_code"]
     difficulty = difficulties or [data["easy"], data["medium"], data["hard"]]
     time_limit = int(data["time_limit"] or "15")
-    rounds = int(data.get("rounds", 1))
+    rounds = int(data.get("rounds", "1"))
 
     if party_code not in parties:
         await sio.emit("error", {"message": "Party not found"}, to=sid)

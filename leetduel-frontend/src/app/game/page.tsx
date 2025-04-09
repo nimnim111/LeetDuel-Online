@@ -176,7 +176,7 @@ function GameContent() {
       router.push(`/`);
     });
 
-    socket.on("game_started", (data: GameData & { round: number; total_rounds: number }) => {
+    socket.on("game_started", (data: GameData) => {
       setSkipButtonDisabled(false);
       setProblem(data.problem);
       setScreen(username);
@@ -187,8 +187,8 @@ function GameContent() {
       setPassedAll(false);
       setReported(false);
       setRoundInfo({
-        current: data.round,
-        total: data.total_rounds,
+        current: data.round ?? 1,
+        total: data.total_rounds ?? 1,
       });
       retrieveTime();
       socket.emit("code_update", { party_code: party, code: code });
