@@ -69,7 +69,7 @@ function GameContent() {
 
   const [showMembers, setShowMembers] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
-  const [members, setMembers] = useState<string[]>([]);
+  const [members, setMembers] = useState<{ username: string; score: number }[]>([]);
   const [screen, setScreen] = useState<string>(username);
 
   const [homeCode, setHomeCode] = useState(starterCode(problem));
@@ -205,7 +205,10 @@ function GameContent() {
     });
 
     socket.on("send_players", (data: PlayerData) => {
-      setMembers(data.players ? data.players : []);
+      const players = data.players ? data.players.map((p: any) =>
+        typeof p === "string" ? { username: p, score: 0 } : p
+      ) : [];
+      setMembers(players);
     });
 
     socket.on("updated_code", (data: MessageData) => {
@@ -227,7 +230,7 @@ function GameContent() {
           current: data.round + 1,
           total: data.total_rounds,
         });
-        setTimeout(() => setRoundLeaderboard(null), 7000);
+        setTimeout(() => setRoundLeaderboard(null), 5000);
       }
     });
 
@@ -431,6 +434,35 @@ function GameContent() {
           Players
         </button>
       </div>
+      {showMembers && (
+      <div className="fixed top-20 right-[18%] z-50" ref={modalRef}>
+        <div className="bg-white dark:bg-gray-700 p-6 rounded shadow-lg w-80">
+          <ul>
+            {members.map((member, index) => (
+              <li
+                key={index}
+                className="flex justify-between items-center py-2 border-b border-gray-300 dark:border-gray-400"
+              >
+                <span>{member.username}</span>
+                <button
+                  className={`px-2 py-1 rounded text-white ${
+                    member.username === username
+                      ? "bg-green-500 transition hover:bg-green-600"
+                      : passedAll
+                      ? "bg-green-500 transition hover:bg-green-600"
+                      : "bg-gray-500 cursor-not-allowed"
+                  }`}
+                  disabled={member.username === username ? false : !passedAll}
+                  onClick={() => handleSpectateClick(member.username)}
+                >
+                  {member.username === username ? "Home" : "Spectate"}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    )}
       <div
         className="min-h-screen bg-gray-100 dark:bg-gray-900 p-6 pr-[18%] text-gray-900 dark:text-gray-100"
         style={{ position: "relative" }}
