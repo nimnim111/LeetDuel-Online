@@ -131,10 +131,10 @@ async def join_party(sid: str, data: dict) -> None:
     )
 
     if parties[party_code]["status"] == "in_progress":
-        player["passed"] = False
         problem = parties[party_code]["problem"]
         player["code"] = f"{problem['function_signature']}:\n    # your code here\n    return"
         player["console_output"] = "Test case output"
+        player["passed"] = False
         await sio.emit("game_started", {"problem": parties[party_code]["problem"], "party_code": party_code}, to=sid)
         await sio.emit("announcement", {"message": f"{username} has joined the game!"}, room=party_code)
 
@@ -163,6 +163,7 @@ async def start_game(sid: str, data: dict, difficulties: list[bool] = []) -> Non
             for player in parties[party_code]["players"]:
                 player["code"] = f"{problem['function_signature']}:\n    # your code here\n    return"
                 player["console_output"] = "Test case output"
+                player["passed"] = False
 
             await sio.emit("game_started", {"problem": problem, "party_code": party_code}, room=party_code)
             await sio.emit("update_time", {"time_left": (time_limit * 60)}, to=sid)
@@ -303,7 +304,8 @@ async def disconnect(sid: str) -> None:
             await sio.emit("announcement", {"message": "Party deleted due to disconnect."}, room=party_code)
             await asyncio.sleep(2)
             await sio.emit("leave_party", room=party_code)
-            del parties[party_code]
+            if party_code in parties:
+                del parties[party_code]
 
         for player in party["players"]:
             if player["sid"] == sid:

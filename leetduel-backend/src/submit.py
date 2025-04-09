@@ -18,7 +18,7 @@ class Problem:
         self.stdinput = json.dumps([test_case["input"] for test_case in problem["test_cases"]])
 
 
-    def submit_code(self, code: str, timeout: int = 2) -> dict:
+    def submit_code(self, code: str, timeout: int = 5) -> dict:
         function_name = self.problem["function_signature"].split("(")[0][4:]
         code = """
 import sys
@@ -141,13 +141,14 @@ print(int((time.time_ns() - start_time) / 1e6))
     @limits(calls=5, period=10)
     def run_subprocess(self, code, timeout):
         if code_execution_url == "":
-            return subprocess.run(
+            p = subprocess.run(
                 ["python3", "-c", code],
                 input=self.stdinput,
                 capture_output=True,
                 text=True,
                 timeout=timeout
             )
+            return {"stderr": p.stderr, "stdout": p.stdout}
         
         response = requests.post(code_execution_url, json={"code": code, "timeout": timeout, "stdinput": self.stdinput})
         return response.json()
