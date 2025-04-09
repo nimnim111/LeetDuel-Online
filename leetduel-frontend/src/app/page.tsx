@@ -174,7 +174,9 @@ function HomeContent() {
   const joinParty = () => {
     if (username) {
       socket.emit("join_party", { username, party_code: localPartyCode });
+      return;
     }
+    setJoinLoading(false);
   };
 
   const startGame = () => {
