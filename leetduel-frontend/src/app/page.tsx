@@ -20,11 +20,10 @@ function HomeContent() {
   const [username, localSetUsername] = useState("");
   const [message, setMessage] = useState("");
   const [members, setMembers] = useState<string[]>([]);
-  const [partyStatus, setPartyStatus] = useState<PartyStatus>(
-    PartyStatus.UNJOINED
-  );
+  const [partyStatus, setPartyStatus] = useState<PartyStatus>(PartyStatus.UNJOINED);
   const [localPartyCode, setLocalPartyCode] = useState("");
   const [timeLimit, setTimeLimit] = useState("");
+  const [rounds, setRounds] = useState("");
   const [easy, setEasy] = useState(true);
   const [medium, setMedium] = useState(true);
   const [hard, setHard] = useState(true);
@@ -98,9 +97,7 @@ function HomeContent() {
       }
       setGoodBanner(true);
       setMessage(`${message}\n${data.username} joined`);
-      setPartyStatus((prev) =>
-        prev === PartyStatus.CREATED ? prev : PartyStatus.JOINED
-      );
+      setPartyStatus((prev) => (prev === PartyStatus.CREATED ? prev : PartyStatus.JOINED));
       setUsername(username);
       setMembers(data.players);
       setJoinLoading(false);
@@ -180,10 +177,16 @@ function HomeContent() {
   };
 
   const startGame = () => {
-    if (isNaN(Number(timeLimit))) {
+    if (!timeLimit || isNaN(Number(timeLimit))) {
       setStartLoading(false);
       setGoodBanner(false);
-      setMessage("Time limit must be a number.");
+      setMessage("Please enter a valid time limit.");
+      return;
+    }
+    if (!rounds || isNaN(Number(rounds)) || Number(rounds) < 1) {
+      setStartLoading(false);
+      setGoodBanner(false);
+      setMessage("Please enter a valid number of rounds.");
       return;
     }
     if (timeLimit && Number(timeLimit) < 1) {
@@ -203,6 +206,7 @@ function HomeContent() {
       socket.emit("start_game", {
         party_code: localPartyCode,
         time_limit: timeLimit,
+        rounds: rounds, // pass rounds setting to the server
         easy,
         medium,
         hard,
@@ -225,12 +229,10 @@ function HomeContent() {
     <div onMouseMove={handleMouseMove} className="page-wrapper">
       <div
         className="grid-background"
-        style={
-          {
-            "--mouseX": delayedMousePos.x + "px",
-            "--mouseY": delayedMousePos.y + "px",
-          } as React.CSSProperties
-        }
+        style={{
+          "--mouseX": delayedMousePos.x + "px",
+          "--mouseY": delayedMousePos.y + "px",
+        } as React.CSSProperties}
       />
       <div className="content-wrapper">
         <div className="min-h-screen flex items-center justify-center p-6 no-bg transition-colors relative">
@@ -263,9 +265,7 @@ function HomeContent() {
             </div>
           )}
           <div className="bg-white dark:bg-gray-900 border-1 border-black dark:border-gray-300 transition duration-500 hover:border-green-400 shadow-lg rounded-xl p-8 w-full max-w-md font-inter">
-            <h1 className="text-3xl text-gray-900 dark:text-white mb-6 text-center">
-              Leetduel
-            </h1>
+            <h1 className="text-3xl text-gray-900 dark:text-white mb-6 text-center">Leetduel</h1>
             <div className="space-y-4 mb-6">
               <input
                 type="text"
@@ -284,110 +284,86 @@ function HomeContent() {
                 className="w-full px-4 py-3 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
               />
             </div>
-            <div
-              className="flex flex-col space-y-3 mb-6 transition-all duration-500 overflow-hidden"
-              style={{
-                maxHeight:
-                  partyStatus === PartyStatus.UNJOINED ? "150px" : "0px",
-                opacity: partyStatus === PartyStatus.UNJOINED ? 1 : 0,
-              }}
-            >
-              <Button
-                loading={createLoading}
-                setLoading={setCreateLoading}
-                handleClick={createParty}
-                color={Color("green")}
-              >
-                Create Party
-              </Button>
-              <Button
-                loading={joinLoading}
-                setLoading={setJoinLoading}
-                handleClick={joinParty}
-                color={Color("blue")}
-              >
-                Join Party
-              </Button>
-            </div>
-            <div
-              className="transition-all space-y-3 duration-500 overflow-hidden mb-6"
-              style={{
-                maxHeight:
-                  partyStatus !== PartyStatus.UNJOINED ? "500px" : "0px",
-                opacity: partyStatus !== PartyStatus.UNJOINED ? 1 : 0,
-              }}
-            >
-              <div className="mt-4 flex items-center space-x-6">
-                <label className="flex items-center space-x-1">
-                  <input
-                    type="checkbox"
-                    className="appearance-none w-5 h-5 border-2 border-gray-300 rounded-sm transition duration-300 checked:bg-blue-400 checked:border-transparent"
-                    checked={easy}
-                    onChange={(e) => setEasy(e.target.checked)}
-                    disabled={partyStatus !== PartyStatus.CREATED}
-                  />
-                  <span className="text-gray-800 dark:text-gray-200">Easy</span>
-                </label>
-                <label className="flex items-center space-x-1">
-                  <input
-                    type="checkbox"
-                    className="appearance-none w-5 h-5 border-2 border-gray-300 rounded-sm transition duration-300 checked:bg-green-400 checked:border-transparent"
-                    checked={medium}
-                    onChange={(e) => setMedium(e.target.checked)}
-                    disabled={partyStatus !== PartyStatus.CREATED}
-                  />
-                  <span className="text-gray-800 dark:text-gray-200">
-                    Medium
-                  </span>
-                </label>
-                <label className="flex items-center space-x-1">
-                  <input
-                    type="checkbox"
-                    className="appearance-none w-5 h-5 border-2 border-gray-300 rounded-sm transition duration-300 checked:bg-red-400 checked:border-transparent"
-                    checked={hard}
-                    onChange={(e) => setHard(e.target.checked)}
-                    disabled={partyStatus !== PartyStatus.CREATED}
-                  />
-                  <span className="text-gray-800 dark:text-gray-200">Hard</span>
-                </label>
+            {partyStatus === PartyStatus.UNJOINED && (
+              <div className="flex flex-col space-y-3 mb-6">
+                <Button loading={createLoading} setLoading={setCreateLoading} handleClick={createParty} color={Color("green")}>
+                  Create Party
+                </Button>
+                <Button loading={joinLoading} setLoading={setJoinLoading} handleClick={joinParty} color={Color("blue")}>
+                  Join Party
+                </Button>
               </div>
-              <div className="mt-4">
-                <input
-                  type="number"
-                  placeholder="Time limit (minutes)"
-                  value={timeLimit}
-                  onChange={(e) => setTimeLimit(e.target.value)}
-                  disabled={partyStatus !== PartyStatus.CREATED}
-                  className="w-full px-4 py-3 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition mb-3"
-                />
+            )}
+            {partyStatus !== PartyStatus.UNJOINED && (
+              <div className="transition-all space-y-3 duration-500 overflow-hidden mb-6">
+                <div className="mt-4 flex items-center space-x-6">
+                  <label className="flex items-center space-x-1">
+                    <input
+                      type="checkbox"
+                      className="appearance-none w-5 h-5 border-2 border-gray-300 rounded-sm transition duration-300 checked:bg-blue-400 checked:border-transparent"
+                      checked={easy}
+                      onChange={(e) => setEasy(e.target.checked)}
+                      disabled={partyStatus !== PartyStatus.CREATED}
+                    />
+                    <span className="text-gray-800 dark:text-gray-200">Easy</span>
+                  </label>
+                  <label className="flex items-center space-x-1">
+                    <input
+                      type="checkbox"
+                      className="appearance-none w-5 h-5 border-2 border-gray-300 rounded-sm transition duration-300 checked:bg-green-400 checked:border-transparent"
+                      checked={medium}
+                      onChange={(e) => setMedium(e.target.checked)}
+                      disabled={partyStatus !== PartyStatus.CREATED}
+                    />
+                    <span className="text-gray-800 dark:text-gray-200">Medium</span>
+                  </label>
+                  <label className="flex items-center space-x-1">
+                    <input
+                      type="checkbox"
+                      className="appearance-none w-5 h-5 border-2 border-gray-300 rounded-sm transition duration-300 checked:bg-red-400 checked:border-transparent"
+                      checked={hard}
+                      onChange={(e) => setHard(e.target.checked)}
+                      disabled={partyStatus !== PartyStatus.CREATED}
+                    />
+                    <span className="text-gray-800 dark:text-gray-200">Hard</span>
+                  </label>
+                </div>
+                <div className="mt-4">
+                  <input
+                    type="number"
+                    placeholder="Time limit (minutes)"
+                    value={timeLimit}
+                    onChange={(e) => setTimeLimit(e.target.value)}
+                    disabled={partyStatus !== PartyStatus.CREATED}
+                    className="w-full px-4 py-3 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition mb-3"
+                  />
+                  <input
+                    type="number"
+                    placeholder="Rounds"
+                    value={rounds}
+                    onChange={(e) => setRounds(e.target.value)}
+                    disabled={partyStatus !== PartyStatus.CREATED}
+                    className="w-full px-4 py-3 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                  />
+                </div>
+                <Button loading={startLoading} setLoading={setStartLoading} handleClick={startGame} color={Color("blue")}>
+                  Start Game
+                </Button>
+                <Button loading={leaveLoading} setLoading={setLeaveLoading} handleClick={leaveGame} color={Color("red")}>
+                  Leave Party
+                </Button>
+                <div className="mt-4">
+                  <h2 className="text-xl font-bold mb-2">Members</h2>
+                  <ul className="list-inside">
+                    {members.map((member, idx) => (
+                      <li key={idx} className="text-lg">
+                        {member}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               </div>
-              <Button
-                loading={startLoading}
-                setLoading={setStartLoading}
-                handleClick={startGame}
-                color={Color("blue")}
-              >
-                Start Game
-              </Button>
-              <Button
-                loading={leaveLoading}
-                setLoading={setLeaveLoading}
-                handleClick={leaveGame}
-                color={Color("red")}
-              >
-                Leave Party
-              </Button>
-              <div className="mt-4">
-                <h2 className="text-xl font-bold mb-2">Members</h2>
-                <ul className="list-inside">
-                  {members.map((member, idx) => (
-                    <li key={idx} className="text-lg">
-                      {member}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
@@ -448,16 +424,8 @@ function HomeContent() {
               transparent 20px
             );
           filter: brightness(1);
-          -webkit-mask-image: radial-gradient(
-            circle at var(--mouseX) var(--mouseY),
-            white,
-            transparent 1000px
-          );
-          mask-image: radial-gradient(
-            circle at var(--mouseX) var(--mouseY),
-            white,
-            transparent 1000px
-          );
+          -webkit-mask-image: radial-gradient(circle at var(--mouseX) var(--mouseY), white, transparent 1000px);
+          mask-image: radial-gradient(circle at var(--mouseX) var(--mouseY), white, transparent 1000px);
           pointer-events: none;
         }
         .page-wrapper {
@@ -472,7 +440,6 @@ function HomeContent() {
         .no-bg {
           background: transparent !important;
         }
-        /* New styles for GitHub logo */
         .github-logo {
           position: fixed;
           bottom: 10px;
