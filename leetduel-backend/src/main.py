@@ -65,7 +65,7 @@ async def game_timeout(party_code: str, time_limit: str, problem_name: str) -> N
         reset_players_passed(party_code)
         await sio.emit("announcement", {"message": "Time is up!"}, room=party_code)
         await asyncio.sleep(3)
-        await sio.emit("game_over", room=party_code)
+        await start_new_round(party_code)
 
 
 @limits(calls=20, period=5)
@@ -74,6 +74,9 @@ def rate_limiter() -> None:
 
 async def start_new_round(party_code: str) -> None:
     """Start a new round with a new problem and reset per-round variables."""
+    if party_code not in parties:
+        return
+    
     party = parties[party_code]
     difficulty = party["difficulties"]
     time_limit = party["time_limit"]
@@ -227,6 +230,7 @@ async def start_game(sid: str, data: dict, difficulties: list[bool] = []) -> Non
                 room=party_code,
             )
             await sio.emit("update_time", {"time_left": (time_limit * 60)}, to=sid)
+            await sio.emit("update_round_info", {"current": 1, "total": rounds}, to=sid)
             asyncio.create_task(game_timeout(party_code, time_limit, problem["name"]))
 
         except Exception as e:
@@ -312,7 +316,6 @@ async def submit_code(sid: str, data: dict) -> None:
                 {"leaderboard": [{"username": p["username"], "score": p["total_score"]} for p in leaderboard]},
                 room=party_code,
             )
-            await sio.emit("game_over", room=party_code)
 
 
 @sio.event
@@ -456,7 +459,8 @@ async def skip_problem(sid: str, data: dict) -> None:
         player["passed"] = False
         player["finish_order"] = None
         player["current_score"] = 0
-    await start_game(sid, {"party_code": party_code, "time_limit": party["time_limit"], "easy": party["difficulties"][0], "medium": party["difficulties"][1], "hard": party["difficulties"][2], "rounds": party["total_rounds"]}, party["difficulties"])
+
+    await start_new_round(party_code)
 
 
 @sio.event
@@ -468,6 +472,16 @@ async def retrieve_time(sid: str, data: dict) -> None:
     time_left = parties[party_code]["end_time"] - time.time()
     print(f"retrieve_time event received from {sid}, time left: {time_left}")
     await sio.emit("update_time", {"time_left": time_left}, to=sid)
+
+
+@sio.event
+async def retrieve_round_info(sid: str, data: dict) -> None:
+    print(f"retrieve_round_info event received from {sid}")
+    party_code = data["party_code"]
+    if party_code not in parties:
+        return
+
+    await sio.emit("update_round_info", {"current": parties[party_code]["current_round"], "total": parties[party_code]["total_rounds"]}, to=sid)
 
 
 @sio.event

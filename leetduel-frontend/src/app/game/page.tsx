@@ -69,7 +69,9 @@ function GameContent() {
 
   const [showMembers, setShowMembers] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
-  const [members, setMembers] = useState<{ username: string; score: number }[]>([]);
+  const [members, setMembers] = useState<{ username: string; score: number }[]>(
+    []
+  );
   const [screen, setScreen] = useState<string>(username);
 
   const [homeCode, setHomeCode] = useState(starterCode(problem));
@@ -78,6 +80,8 @@ function GameContent() {
   const [showHelp, setShowHelp] = useState(false);
   const helpModalRef = useRef<HTMLDivElement>(null);
   const [reported, setReported] = useState(false);
+
+  const [waiting, setWaiting] = useState(false);
 
   // New state for round tracking and leaderboard modals.
   const [roundInfo, setRoundInfo] = useState({ current: 1, total: 1 });
@@ -153,7 +157,11 @@ function GameContent() {
     socket.on("message_received", (data: MessageData) => {
       setChatMessages((prevMessages) => [
         ...prevMessages,
-        { message: `${data.username}: ${data.message}`, bold: false, color: "" },
+        {
+          message: `${data.username}: ${data.message}`,
+          bold: false,
+          color: "",
+        },
       ]);
     });
 
@@ -169,7 +177,7 @@ function GameContent() {
     });
 
     socket.on("game_over", () => {
-      router.push(`/?party=${encodeURIComponent(party)}&username=${encodeURIComponent(username)}`);
+      backToLobby();
     });
 
     socket.on("leave_party", () => {
@@ -186,13 +194,13 @@ function GameContent() {
       setHomeConsole("Test case output");
       setPassedAll(false);
       setReported(false);
-      setRoundInfo({
-        current: data.round ?? 1,
-        total: data.total_rounds ?? 1,
-      });
+      retrieveRoundInfo();
       retrieveTime();
       socket.emit("code_update", { party_code: party, code: code });
-      socket.emit("console_update", { party_code: party, console_output: consoleOutput });
+      socket.emit("console_update", {
+        party_code: party,
+        console_output: consoleOutput,
+      });
       router.push(`/game?party=${encodeURIComponent(data.party_code)}`);
     });
 
@@ -205,9 +213,11 @@ function GameContent() {
     });
 
     socket.on("send_players", (data: PlayerData) => {
-      const players = data.players ? data.players.map((p: any) =>
-        typeof p === "string" ? { username: p, score: 0 } : p
-      ) : [];
+      const players = data.players
+        ? data.players.map((p: any) =>
+            typeof p === "string" ? { username: p, score: 0 } : p
+          )
+        : [];
       setMembers(players);
     });
 
@@ -225,17 +235,16 @@ function GameContent() {
       if (isFinalRound) {
         setFinalLeaderboard({ leaderboard: data.leaderboard });
       } else {
-        setRoundLeaderboard(data);
-        setRoundInfo({
-          current: data.round + 1,
-          total: data.total_rounds,
-        });
-        setTimeout(() => setRoundLeaderboard(null), 5000);
+        setWaiting(true);
       }
     });
 
     socket.on("final_leaderboard", (data) => {
       setFinalLeaderboard(data);
+    });
+
+    socket.on("update_round_info", (data) => {
+      setRoundInfo(data);
     });
 
     return () => {
@@ -253,11 +262,16 @@ function GameContent() {
       socket.off("updated_console");
       socket.off("round_leaderboard");
       socket.off("final_leaderboard");
+      socket.off("update_round_info");
     };
   }, [problem, router]);
 
   useEffect(() => {
-    if (editorContainerRef.current && editorRef.current && lineNumbersRef.current) {
+    if (
+      editorContainerRef.current &&
+      editorRef.current &&
+      lineNumbersRef.current
+    ) {
       editorRef.current.style.height = "auto";
       const newHeight = editorRef.current.scrollHeight;
       editorRef.current.style.height = newHeight + "px";
@@ -267,7 +281,8 @@ function GameContent() {
         code.length > lastCodeRef.current.length &&
         scrollIfAppendedRef.current
       ) {
-        editorContainerRef.current.scrollTop = editorContainerRef.current.scrollHeight;
+        editorContainerRef.current.scrollTop =
+          editorContainerRef.current.scrollHeight;
       }
       lastCodeRef.current = code;
       scrollIfAppendedRef.current = false;
@@ -276,7 +291,8 @@ function GameContent() {
 
   useEffect(() => {
     if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+      chatContainerRef.current.scrollTop =
+        chatContainerRef.current.scrollHeight;
     }
   }, [chatMessages]);
 
@@ -284,14 +300,26 @@ function GameContent() {
     socket.emit("retrieve_time", { party_code: party });
   }
 
+  function retrieveRoundInfo() {
+    socket.emit("retrieve_round_info", { party_code: party });
+  }
+
   useEffect(() => {
     retrieveTime();
+  }, []);
+
+  useEffect(() => {
+    retrieveRoundInfo();
   }, []);
 
   const runCode = () => {
     setConsoleOutput("Running code...");
     setButtonDisabled(true);
-    socket.emit("submit_code", { code: code, party_code: party, username: username });
+    socket.emit("submit_code", {
+      code: code,
+      party_code: party,
+      username: username,
+    });
   };
 
   const sendMessage = () => {
@@ -368,36 +396,21 @@ function GameContent() {
     setReported(true);
   };
 
+  const backToLobby = () => {
+    router.push(
+      `/?party=${encodeURIComponent(party)}&username=${encodeURIComponent(
+        username
+      )}`
+    );
+  };
+
   return (
     <>
       {/* Modal overlay for round leaderboard */}
-      {roundLeaderboard && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 z-50">
-          <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 w-full max-w-md shadow-xl">
-            <h2 className="text-2xl font-bold mb-6 text-center text-gray-800 dark:text-white">
-              Round {roundLeaderboard.round} of {roundLeaderboard.total_rounds}
-            </h2>
-            <ul className="space-y-3">
-              {roundLeaderboard.leaderboard.map((entry, index) => (
-                <li
-                  key={index}
-                  className="flex justify-between items-center px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-md"
-                >
-                  <span className="font-semibold">
-                    {index + 1}. {entry.username}
-                  </span>
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
-                    {entry.score.toFixed(2)} pts
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      )}
+
       {/* Modal overlay for final leaderboard */}
       {finalLeaderboard && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 z-50">
+        <div className="fixed inset-0 flex items-center justify-center bg-white dark:bg-gray-900 bg-opacity-60 z-50">
           <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 w-full max-w-md shadow-xl text-center">
             <h2 className="text-3xl font-bold mb-6 text-gray-800 dark:text-white">
               🏆 Final Leaderboard
@@ -418,7 +431,7 @@ function GameContent() {
               ))}
             </ul>
             <button
-              onClick={() => router.push("/")}
+              onClick={backToLobby}
               className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-6 rounded-lg transition"
             >
               Return to Lobby
@@ -426,43 +439,45 @@ function GameContent() {
           </div>
         </div>
       )}
-      <div className="fixed top-4 right-[18%] z-50">
-        <button
-          onClick={handlePlayersClick}
-          className="bg-blue-600 transition hover:bg-blue-700 text-white py-2 px-4 rounded-md shadow"
-        >
-          Players
-        </button>
-      </div>
-      {showMembers && (
-      <div className="fixed top-20 right-[18%] z-50" ref={modalRef}>
-        <div className="bg-white dark:bg-gray-700 p-6 rounded shadow-lg w-80">
-          <ul>
-            {members.map((member, index) => (
-              <li
-                key={index}
-                className="flex justify-between items-center py-2 border-b border-gray-300 dark:border-gray-400"
-              >
-                <span>{member.username}</span>
-                <button
-                  className={`px-2 py-1 rounded text-white ${
-                    member.username === username
-                      ? "bg-green-500 transition hover:bg-green-600"
-                      : passedAll
-                      ? "bg-green-500 transition hover:bg-green-600"
-                      : "bg-gray-500 cursor-not-allowed"
-                  }`}
-                  disabled={member.username === username ? false : !passedAll}
-                  onClick={() => handleSpectateClick(member.username)}
-                >
-                  {member.username === username ? "Home" : "Spectate"}
-                </button>
-              </li>
-            ))}
-          </ul>
+      {!finalLeaderboard && (
+        <div className="fixed top-4 right-[18%] z-50">
+          <button
+            onClick={handlePlayersClick}
+            className="bg-blue-600 transition hover:bg-blue-700 text-white py-2 px-4 rounded-md shadow"
+          >
+            Players
+          </button>
         </div>
-      </div>
-    )}
+      )}
+      {showMembers && (
+        <div className="fixed top-15 right-[18%] z-50" ref={modalRef}>
+          <div className="bg-white dark:bg-gray-700 p-6 rounded shadow-lg w-80">
+            <ul>
+              {members.map((member, index) => (
+                <li
+                  key={index}
+                  className="flex justify-between items-center py-2 border-b border-gray-300 dark:border-gray-400"
+                >
+                  <span>{member.username}</span>
+                  <button
+                    className={`px-2 py-1 rounded text-white ${
+                      member.username === username
+                        ? "bg-green-500 transition hover:bg-green-600"
+                        : passedAll
+                        ? "bg-green-500 transition hover:bg-green-600"
+                        : "bg-gray-500 cursor-not-allowed"
+                    }`}
+                    disabled={member.username === username ? false : !passedAll}
+                    onClick={() => handleSpectateClick(member.username)}
+                  >
+                    {member.username === username ? "Home" : "Spectate"}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
       <div
         className="min-h-screen bg-gray-100 dark:bg-gray-900 p-6 pr-[18%] text-gray-900 dark:text-gray-100"
         style={{ position: "relative" }}
@@ -614,14 +629,16 @@ function GameContent() {
             </div>
           </div>
         )}
-        <div className="fixed bottom-4 right-[18%] z-50">
-          <button
-            className="bg-gray-600 transition hover:bg-gray-700 text-white py-2 px-4 rounded"
-            onClick={() => setShowHelp(true)}
-          >
-            Help
-          </button>
-        </div>
+        {!finalLeaderboard && (
+          <div className="fixed bottom-4 right-[18%] z-50">
+            <button
+              className="bg-gray-600 transition hover:bg-gray-700 text-white py-2 px-4 rounded"
+              onClick={() => setShowHelp(true)}
+            >
+              Help
+            </button>
+          </div>
+        )}
       </div>
     </>
   );
