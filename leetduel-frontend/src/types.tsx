@@ -4,7 +4,7 @@ export type TestCase = {
 };
 
 export type Problem = {
-  name: string;
+  problem_name: string;
   description: string;
   function_signature: string;
   difficulty: string;
@@ -22,7 +22,7 @@ export type GameContextType = {
 
 export interface PlayerData {
   username: string;
-  party_code?: string;
+  party_code: string;
   players?: string[];
 }
 
@@ -30,8 +30,6 @@ export interface GameData {
   problem: Problem;
   party_code: string;
   time_limit: string;
-  round?: number;
-  total_rounds?: number;
 }
 
 export interface ErrorData {
@@ -47,4 +45,15 @@ export interface MessageData {
 
 export interface TimeData {
   time_left: number;
+}
+
+export interface LeaderboardData {
+  leaderboard: { username: string; score: number }[];
+  round: number;
+  total_rounds: number;
+}
+
+export interface RoundData {
+  current: number;
+  total: number;
 }

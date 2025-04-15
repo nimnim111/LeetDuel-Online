@@ -8,6 +8,8 @@ import {
   GameData,
   TimeData,
   PlayerData,
+  LeaderboardData,
+  RoundData,
 } from "../../types";
 import socket from "../../socket";
 import Editor from "@monaco-editor/react";
@@ -84,15 +86,14 @@ function GameContent() {
   const [waiting, setWaiting] = useState(false);
 
   // New state for round tracking and leaderboard modals.
-  const [roundInfo, setRoundInfo] = useState({ current: 1, total: 1 });
-  const [roundLeaderboard, setRoundLeaderboard] = useState<{
-    leaderboard: { username: string; score: number }[];
-    round: number;
-    total_rounds: number;
-  } | null>(null);
-  const [finalLeaderboard, setFinalLeaderboard] = useState<{
-    leaderboard: { username: string; score: number }[];
-  } | null>(null);
+  const [roundInfo, setRoundInfo] = useState<RoundData>({
+    current: 1,
+    total: 1,
+  });
+  const [roundLeaderboard, setRoundLeaderboard] =
+    useState<LeaderboardData | null>(null);
+  const [finalLeaderboard, setFinalLeaderboard] =
+    useState<LeaderboardData | null>(null);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -158,17 +159,6 @@ function GameContent() {
       setChatMessages((prevMessages) => [...prevMessages, data]);
     });
 
-    socket.on("player_submit", (data: MessageData) => {
-      setChatMessages((prevMessages) => [...prevMessages, data]);
-    });
-
-    socket.on("announcement", (data: MessageData) => {
-      setChatMessages((prevMessages) => [
-        ...prevMessages,
-        { message: data.message, bold: true, color: "" },
-      ]);
-    });
-
     socket.on("game_over", () => {
       backToLobby();
     });
@@ -225,26 +215,23 @@ function GameContent() {
       setConsoleOutput(data.message);
     });
 
-    // New events for round leaderboard and final leaderboard.
-    socket.on("round_leaderboard", (data) => {
+    socket.on("round_leaderboard", (data: LeaderboardData) => {
       setWaiting(true);
       setRoundLeaderboard(data);
     });
 
-    socket.on("final_leaderboard", (data) => {
+    socket.on("final_leaderboard", (data: LeaderboardData) => {
       setWaiting(true);
       setFinalLeaderboard(data);
     });
 
-    socket.on("update_round_info", (data) => {
+    socket.on("update_round_info", (data: RoundData) => {
       setRoundInfo(data);
     });
 
     return () => {
       socket.off("code_submitted");
       socket.off("message_received");
-      socket.off("player_submit");
-      socket.off("announcement");
       socket.off("game_over");
       socket.off("leave_party");
       socket.off("game_started");
@@ -445,7 +432,7 @@ function GameContent() {
                   setRoundLeaderboard(null);
                   setFinalLeaderboard(null);
                 }}
-                className="mt-4 bg-green-600 hover:bg-green-700 text-white py-2 px-6 rounded-lg transition"
+                className="mt-4 bg-green-600 hover:bg-green-700 m-2 text-white py-2 px-6 rounded-lg transition"
               >
                 View Code
               </button>
@@ -486,7 +473,7 @@ function GameContent() {
                 setRoundLeaderboard(null);
                 setFinalLeaderboard(null);
               }}
-              className="mt-4 bg-green-600 hover:bg-green-700 text-white py-2 px-6 rounded-lg transition"
+              className="mt-4 bg-green-600 hover:bg-green-700 m-2 text-white py-2 px-6 rounded-lg transition"
             >
               View Code
             </button>

@@ -6,20 +6,21 @@ from ratelimit import limits, RateLimitException
 
 from src.classes.ListNode import ListNode, linkedList
 from src.config import code_execution_url
+from src.types import ProblemData
 
 
 
 class Problem:
 
 
-    def __init__(self, language_id: int, problem: dict):
+    def __init__(self, language_id: int, problem: ProblemData):
         self.language_id = language_id
         self.problem = problem
-        self.stdinput = json.dumps([test_case["input"] for test_case in problem["test_cases"]])
+        self.stdinput = json.dumps([test_case["input"] for test_case in problem.test_cases])
 
 
     def submit_code(self, code: str, timeout: int = 5) -> dict:
-        function_name = self.problem["function_signature"].split("(")[0][4:]
+        function_name = self.problem.function_signature.split("(")[0][4:]
         code = """
 import sys
 import json
@@ -84,8 +85,8 @@ print(int((time.time_ns() - start_time) / 1e6))
         
 
     def check_test_cases(self, data: str) -> dict:
-        test_cases = self.problem["test_cases"]
-        any_order = self.problem["any_order"]
+        test_cases = self.problem.test_cases
+        any_order = self.problem.any_order
 
         if not data:
             return {"message": "No output", "status": "Failed"}
