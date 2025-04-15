@@ -178,6 +178,7 @@ function GameContent() {
     });
 
     socket.on("game_started", (data: GameData) => {
+      socket.emit("leave_spectate_rooms", { party_code: party });
       setSkipButtonDisabled(false);
       setProblem(data.problem);
       setScreen(username);
@@ -197,7 +198,6 @@ function GameContent() {
         party_code: party,
         console_output: consoleOutput,
       });
-      router.push(`/game?party=${encodeURIComponent(data.party_code)}`);
     });
 
     socket.on("update_time", (data: TimeData) => {
