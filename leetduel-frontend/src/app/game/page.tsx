@@ -155,14 +155,7 @@ function GameContent() {
     });
 
     socket.on("message_received", (data: MessageData) => {
-      setChatMessages((prevMessages) => [
-        ...prevMessages,
-        {
-          message: `${data.username}: ${data.message}`,
-          bold: false,
-          color: "",
-        },
-      ]);
+      setChatMessages((prevMessages) => [...prevMessages, data]);
     });
 
     socket.on("player_submit", (data: MessageData) => {
@@ -194,6 +187,9 @@ function GameContent() {
       setHomeConsole("Test case output");
       setPassedAll(false);
       setReported(false);
+      setWaiting(false);
+      setRoundLeaderboard(null);
+      setFinalLeaderboard(null);
       retrieveRoundInfo();
       retrieveTime();
       socket.emit("code_update", { party_code: party, code: code });
@@ -231,15 +227,12 @@ function GameContent() {
 
     // New events for round leaderboard and final leaderboard.
     socket.on("round_leaderboard", (data) => {
-      const isFinalRound = data.round === data.total_rounds;
-      if (isFinalRound) {
-        setFinalLeaderboard({ leaderboard: data.leaderboard });
-      } else {
-        setWaiting(true);
-      }
+      setWaiting(true);
+      setRoundLeaderboard(data);
     });
 
     socket.on("final_leaderboard", (data) => {
+      setWaiting(true);
       setFinalLeaderboard(data);
     });
 
@@ -344,6 +337,11 @@ function GameContent() {
     console.log("Skip problem clicked");
   };
 
+  // Add startNextRound function
+  const startNextRound = () => {
+    socket.emit("start_next_round", { party_code: party });
+  };
+
   const handleCodeChange = (e: string | undefined) => {
     if (screen !== username) {
       return;
@@ -404,13 +402,66 @@ function GameContent() {
     );
   };
 
+  const continueToNext = () => {
+    if (roundInfo.current === roundInfo.total) {
+      backToLobby();
+    } else {
+      startNextRound();
+    }
+  };
+
   return (
     <>
       {/* Modal overlay for round leaderboard */}
-
+      {roundLeaderboard && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center">
+          <div
+            className="absolute inset-0"
+            style={{ backdropFilter: "blur(10px)" }}
+          />
+          <div className="relative z-60">
+            <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 w-full max-w-md shadow-xl">
+              <h2 className="text-2xl font-bold mb-6 text-center text-gray-800 dark:text-white">
+                Round {roundLeaderboard.round} of{" "}
+                {roundLeaderboard.total_rounds}
+              </h2>
+              <ul className="space-y-3">
+                {roundLeaderboard.leaderboard.map((entry, index) => (
+                  <li
+                    key={index}
+                    className="flex justify-between items-center px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-md"
+                  >
+                    <span className="font-semibold">
+                      {index + 1}. {entry.username}
+                    </span>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      {entry.score.toFixed(2)} pts
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <button
+                onClick={() => {
+                  setRoundLeaderboard(null);
+                  setFinalLeaderboard(null);
+                }}
+                className="mt-4 bg-green-600 hover:bg-green-700 text-white py-2 px-6 rounded-lg transition"
+              >
+                View Code
+              </button>
+              <button
+                onClick={startNextRound}
+                className="mt-4 bg-blue-600 hover:bg-blue-700 text-white py-2 px-6 rounded-lg transition"
+              >
+                Start Next Round
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Modal overlay for final leaderboard */}
       {finalLeaderboard && (
-        <div className="fixed inset-0 flex items-center justify-center bg-white dark:bg-gray-900 bg-opacity-60 z-50">
+        <div className="fixed inset-0 flex items-center justify-center bg-white dark:bg-gray-900 bg-opacity-60 z-60">
           <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 w-full max-w-md shadow-xl text-center">
             <h2 className="text-3xl font-bold mb-6 text-gray-800 dark:text-white">
               🏆 Final Leaderboard
@@ -430,6 +481,15 @@ function GameContent() {
                 </li>
               ))}
             </ul>
+            <button
+              onClick={() => {
+                setRoundLeaderboard(null);
+                setFinalLeaderboard(null);
+              }}
+              className="mt-4 bg-green-600 hover:bg-green-700 text-white py-2 px-6 rounded-lg transition"
+            >
+              View Code
+            </button>
             <button
               onClick={backToLobby}
               className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-6 rounded-lg transition"
@@ -463,11 +523,15 @@ function GameContent() {
                     className={`px-2 py-1 rounded text-white ${
                       member.username === username
                         ? "bg-green-500 transition hover:bg-green-600"
-                        : passedAll
+                        : passedAll || waiting
                         ? "bg-green-500 transition hover:bg-green-600"
                         : "bg-gray-500 cursor-not-allowed"
                     }`}
-                    disabled={member.username === username ? false : !passedAll}
+                    disabled={
+                      member.username === username
+                        ? false
+                        : !passedAll && !waiting
+                    }
                     onClick={() => handleSpectateClick(member.username)}
                   >
                     {member.username === username ? "Home" : "Spectate"}
@@ -514,9 +578,9 @@ function GameContent() {
               )}
               <button
                 onClick={runCode}
-                disabled={screen !== username || buttonDisabled}
+                disabled={screen !== username || buttonDisabled || waiting}
                 className={`absolute bottom-4 right-4 ${
-                  screen !== username || buttonDisabled
+                  screen !== username || buttonDisabled || waiting
                     ? "bg-gray-500 cursor-not-allowed"
                     : "bg-blue-600 hover:bg-blue-700"
                 } text-white py-2 px-4 rounded-lg transition`}
@@ -538,7 +602,7 @@ function GameContent() {
                     minimap: { enabled: false },
                     inlineSuggest: { enabled: false },
                     folding: false,
-                    readOnly: screen !== username,
+                    readOnly: screen !== username || waiting,
                   }}
                 />
               </div>
@@ -600,11 +664,15 @@ function GameContent() {
             Leave Game
           </button>
           <button
-            onClick={skipProblem}
+            onClick={waiting ? continueToNext : skipProblem}
             disabled={skipButtonDisabled}
-            className="bg-gray-600 transition hover:bg-gray-700 text-white py-2 px-4 rounded"
+            className={`${
+              waiting
+                ? "bg-green-600 transition hover:bg-green-700"
+                : "bg-gray-600 transition hover:bg-gray-700"
+            } text-white py-2 px-4 rounded`}
           >
-            Skip Problem
+            {waiting ? "Continue" : "Skip Problem"}
           </button>
         </div>
         {showHelp && (

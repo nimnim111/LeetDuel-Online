@@ -1,6 +1,7 @@
 import random
 import string
 import time
+from dataclasses import asdict
 
 import socketio
 import asyncio
@@ -16,6 +17,7 @@ from .crud import get_problem, increment_reports
 from .config import port
 
 from src.routes.problems import router as problems_router
+from src.types import MessageData
 
 
 
@@ -65,7 +67,7 @@ async def game_timeout(party_code: str, time_limit: str, problem_name: str) -> N
         reset_players_passed(party_code)
         await sio.emit("announcement", {"message": "Time is up!"}, room=party_code)
         await asyncio.sleep(3)
-        await start_new_round(party_code)
+        await finish_round(party_code)
 
 
 @limits(calls=20, period=5)
@@ -105,6 +107,32 @@ async def start_new_round(party_code: str) -> None:
     await sio.emit("update_time", {"time_left": (time_limit * 60)}, to=party["host"])
     asyncio.create_task(game_timeout(party_code, time_limit, problem["name"]))
 
+
+async def finish_round(party_code: str) -> None:
+    party = parties[party_code]
+    for player in party["players"]:
+        player["total_score"] += player.get("current_score", 0)
+    leaderboard = sorted(party["players"], key=lambda x: x["total_score"], reverse=True)
+
+    if party["current_round"] < party["total_rounds"]:
+        await sio.emit(
+            "round_leaderboard",
+            {
+                "leaderboard": [{"username": p["username"], "score": p["total_score"]} for p in leaderboard],
+                "round": party["current_round"],
+                "total_rounds": party["total_rounds"],
+            },
+            room=party_code,
+        )
+        party["current_round"] += 1
+
+    else:
+        await sio.emit(
+            "final_leaderboard",
+            {"leaderboard": [{"username": p["username"], "score": p["total_score"]} for p in leaderboard]},
+            room=party_code,
+        )
+
 # <----------------- Socket events ----------------->
 
 @sio.event
@@ -128,6 +156,15 @@ async def create_party(sid: str, data: dict) -> None:
     }
     await sio.emit("party_created", {"username": data["username"], "party_code": party_code}, to=sid)
     await sio.enter_room(sid, party_code)
+
+
+@sio.event
+async def start_next_round(sid: str, data: dict) -> None:
+    print(f"start_next_round event received from {sid}")
+    party_code = data["party_code"]
+    if sid != parties[party_code]["host"]:
+        return
+    await start_new_round(party_code)
 
 
 @sio.event
@@ -191,7 +228,7 @@ async def start_game(sid: str, data: dict, difficulties: list[bool] = []) -> Non
     party_code = data["party_code"]
     difficulty = difficulties or [data["easy"], data["medium"], data["hard"]]
     time_limit = int(data["time_limit"] or "15")
-    rounds = int(data.get("rounds", "1"))
+    rounds = int(data["rounds"] or "1")
 
     if party_code not in parties:
         await sio.emit("error", {"message": "Party not found"}, to=sid)
@@ -249,6 +286,13 @@ async def submit_code(sid: str, data: dict) -> None:
     if party_code not in parties:
         await sio.emit("leave_party", to=sid)
         return
+    
+    player = None
+    
+    for p in parties[party_code]["players"]:
+        if sid == p["sid"]:
+            player = p
+            break
 
     code = data["code"]
     problem_obj = parties[party_code]["problem"]
@@ -266,56 +310,34 @@ async def submit_code(sid: str, data: dict) -> None:
         message_to_room = f"{data['username']} passed {str(r['passed test cases'])}/{str(r['total test cases'])} test cases in {str(r['time'])}ms."
         if "failed_test" in r and r["failed_test"] is not None:
             message_to_client += "\n" + r["failed_test"] + (f" \nstdout: {r['stdout']}")
+            player["current_score"] = max(player["current_score"], 100 * r["passed test cases"] / (max(1, float(r["time"])) * 10 * r["total test cases"]))
 
     if r["status"] == "Accepted":
         color = "#66BB6A"
-        for player in parties[party_code]["players"]:
-            if player["sid"] == sid:
-                player["passed"] = True
-                if player.get("finish_order") is None:
-                    parties[party_code]["finish_count"] += 1
-                    player["finish_order"] = parties[party_code]["finish_count"]
-                try:
-                    runtime = float(r["time"])
-                except Exception:
-                    runtime = 1
-                if runtime == 0:
-                    runtime = 1
-                new_score = r["passed test cases"] / (runtime * player["finish_order"])
-                if new_score > player.get("current_score", 0):
-                    player["current_score"] = new_score
-                await sio.emit("passed_all", to=sid)
+        if player["sid"] == sid:
+            player["passed"] = True
+            if player.get("finish_order") is None:
+                parties[party_code]["finish_count"] += 1
+                player["finish_order"] = parties[party_code]["finish_count"]
+            try:
+                runtime = float(r["time"])
+            except Exception:
+                runtime = 1
+            if runtime == 0:
+                runtime = 1
+            new_score = 100 * r["passed test cases"] / (runtime * player["finish_order"] * r["total test cases"])
+            if new_score > player.get("current_score", 0):
+                player["current_score"] = new_score
+            await sio.emit("passed_all", to=sid)
 
     await sio.emit("code_submitted", {"message": message_to_client}, to=sid)
 
     if "message" not in r or r["message"] != "Rate limited! Please wait 5 seconds and try again.":
-        await sio.emit("player_submit", {"message": message_to_room, "bold": True, "color": color}, room=party_code)
+        data = MessageData(message_to_room, True, color)
+        await sio.emit("player_submit", asdict(data), room=party_code)
 
     if all_players_passed(party_code):
-        party = parties[party_code]
-        for player in party["players"]:
-            player["total_score"] += player.get("current_score", 0)
-        leaderboard = sorted(party["players"], key=lambda x: x["total_score"], reverse=True)
-        await sio.emit(
-            "round_leaderboard",
-            {
-                "leaderboard": [{"username": p["username"], "score": p["total_score"]} for p in leaderboard],
-                "round": party["current_round"],
-                "total_rounds": party["total_rounds"],
-            },
-            room=party_code,
-        )
-        if party["current_round"] < party["total_rounds"]:
-            party["current_round"] += 1
-            await asyncio.sleep(3)
-            await start_new_round(party_code)
-        else:
-            await asyncio.sleep(3)
-            await sio.emit(
-                "final_leaderboard",
-                {"leaderboard": [{"username": p["username"], "score": p["total_score"]} for p in leaderboard]},
-                room=party_code,
-            )
+        await finish_round(party_code)
 
 
 @sio.event
@@ -345,7 +367,9 @@ async def chat_message(sid: str, data: dict) -> None:
     message = data["message"]
     username = data["username"]
 
-    await sio.emit("message_received", {"username": username, "message": message}, room=party_code)
+    data = MessageData(f"{username}: {message}", False, "")
+
+    await sio.emit("message_received", asdict(data), room=party_code)
 
 
 @sio.event

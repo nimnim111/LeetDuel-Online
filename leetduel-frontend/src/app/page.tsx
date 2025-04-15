@@ -20,10 +20,12 @@ function HomeContent() {
   const [username, localSetUsername] = useState("");
   const [message, setMessage] = useState("");
   const [members, setMembers] = useState<string[]>([]);
-  const [partyStatus, setPartyStatus] = useState<PartyStatus>(PartyStatus.UNJOINED);
+  const [partyStatus, setPartyStatus] = useState<PartyStatus>(
+    PartyStatus.UNJOINED
+  );
   const [localPartyCode, setLocalPartyCode] = useState("");
   const [timeLimit, setTimeLimit] = useState("");
-  const [rounds, setRounds] = useState("1");
+  const [rounds, setRounds] = useState("");
   const [easy, setEasy] = useState(true);
   const [medium, setMedium] = useState(true);
   const [hard, setHard] = useState(true);
@@ -97,7 +99,9 @@ function HomeContent() {
       }
       setGoodBanner(true);
       setMessage(`${message}\n${data.username} joined`);
-      setPartyStatus((prev) => (prev === PartyStatus.CREATED ? prev : PartyStatus.JOINED));
+      setPartyStatus((prev) =>
+        prev === PartyStatus.CREATED ? prev : PartyStatus.JOINED
+      );
       setUsername(username);
       setMembers(data.players);
       setJoinLoading(false);
@@ -183,7 +187,7 @@ function HomeContent() {
       setMessage("Please enter a valid time limit.");
       return;
     }
-    if (!rounds || isNaN(Number(rounds)) || Number(rounds) < 1) {
+    if (isNaN(Number(rounds)) || (rounds && Number(rounds) < 1)) {
       setStartLoading(false);
       setGoodBanner(false);
       setMessage("Please enter a valid number of rounds.");
