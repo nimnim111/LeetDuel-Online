@@ -1,4 +1,5 @@
-from dataclasses import dataclass
+import json
+from dataclasses import dataclass, asdict
 from typing import List, Optional
 
 
@@ -32,6 +33,10 @@ class ProblemData:
         self.reports = reports
 
 
+    def toJSON(self):
+        return json.dumps(asdict(self))
+
+
 @dataclass
 class PlayerData:
     username: str
@@ -54,6 +59,14 @@ class GameData:
         self.problem = problem
         self.party_code = party_code
         self.time_limit = time_limit
+
+
+@dataclass
+class ErrorData:
+    message: str
+
+    def __init__(self, message: str):
+        self.message = message
 
 
 @dataclass

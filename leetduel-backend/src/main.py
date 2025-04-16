@@ -17,7 +17,7 @@ from .crud import get_problem, increment_reports
 from .config import port
 
 from src.routes.problems import router as problems_router
-from src.types import PlayerData, MessageData, TimeData, GameData, ProblemData
+from src.types import PlayerData, MessageData, TimeData, GameData, ProblemData, ErrorData
 
 
 
@@ -109,6 +109,7 @@ async def start_new_round(party_code: str) -> None:
 
 async def finish_round(party_code: str) -> None:
     party = parties[party_code]
+    party["status"] = "waiting"
     for player in party["players"]:
         player["total_score"] += player.get("current_score", 0)
     leaderboard = sorted(party["players"], key=lambda x: x["total_score"], reverse=True)
@@ -179,22 +180,26 @@ async def join_party(sid: str, data: dict) -> None:
 
     if party_code == "":
         if not parties:
-            await sio.emit("error", {"message": "No parties to join"}, to=sid)
+            e = ErrorData("No parties to join")
+            await sio.emit("error", asdict(e), to=sid)
             return
 
         party_code = random.choice(list(parties.keys()))
         await sio.emit("set_party_code", {"party_code": party_code}, to=sid)
 
     if party_code not in parties:
-        await sio.emit("error", {"message": "Party not found"}, to=sid)
+        e = ErrorData("Party not found")
+        await sio.emit("error", asdict(e), to=sid)
         return
 
     if len(parties[party_code]["players"]) >= 10:
-        await sio.emit("error", {"message": "Party is full!"}, to=sid)
+        e = ErrorData("Party is full!")
+        await sio.emit("error", asdict(e), to=sid)
         return
     
     if username in [d["username"] for d in parties[party_code]["players"]]:
-        await sio.emit("error", {"message": "Username taken!"}, to=sid)
+        e = ErrorData("Username taken!")
+        await sio.emit("error", asdict(e), to=sid)
         return
     
     player = {
@@ -232,7 +237,8 @@ async def start_game(sid: str, data: dict, difficulties: list[bool] = []) -> Non
     rounds = int(data["rounds"] or "1")
 
     if party_code not in parties:
-        await sio.emit("error", {"message": "Party not found"}, to=sid)
+        e = ErrorData("Party not found")
+        await sio.emit("error", asdict(e), to=sid)
         return
 
     if parties[party_code]["host"] == sid:
@@ -274,10 +280,12 @@ async def start_game(sid: str, data: dict, difficulties: list[bool] = []) -> Non
 
         except Exception as e:
             print(f"Error in start_game:\n{e}")
-            await sio.emit("error", {"message": "An internal error occurred while retrieving problems."}, to=sid)
+            error = ErrorData("An internal error occurred while retrieving problems.")
+            await sio.emit("error", asdict(error), to=sid)
 
     else:
-        await sio.emit("error", {"message": "You are not the host"}, to=sid)
+        e = ErrorData("You are not the host")
+        await sio.emit("error", asdict(e), to=sid)
 
 
 @sio.event
@@ -423,11 +431,13 @@ async def leave_party(sid: str, data: dict) -> None:
 async def restart_game(sid: str, data: dict) -> None:
     party_code = data["party_code"]
     if party_code not in parties:
-        await sio.emit("error", {"message": "Party not found"}, to=sid)
+        e = ErrorData("Party not found")
+        await sio.emit("error", asdict(e), to=sid)
         return
 
     if parties[party_code]["host"] != sid:
-        await sio.emit("error", {"message": "Only the host can restart the game."}, to=sid)
+        e = ErrorData("Only the host can restart the game.")
+        await sio.emit("error", asdict(e), to=sid)
         return
 
     party = parties[party_code]

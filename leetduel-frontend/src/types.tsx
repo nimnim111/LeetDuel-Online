@@ -4,7 +4,7 @@ export type TestCase = {
 };
 
 export type Problem = {
-  problem_name: string;
+  name: string;
   description: string;
   function_signature: string;
   difficulty: string;

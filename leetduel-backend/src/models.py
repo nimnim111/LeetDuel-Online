@@ -19,7 +19,7 @@ class Problem(Base):
     reports = Column(Integer)
 
 
-    def asdata(self):
+    def asdata(self) -> ProblemData:
         return ProblemData(self.problem_name, self.problem_description, self.function_signature, self.problem_difficulty, self.test_cases, self.any_order, self.reports)
 
 

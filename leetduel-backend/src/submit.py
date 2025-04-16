@@ -19,7 +19,7 @@ class Problem:
         self.stdinput = json.dumps([test_case["input"] for test_case in problem.test_cases])
 
 
-    def submit_code(self, code: str, timeout: int = 5) -> dict:
+    def submit_code(self, code: str, timeout: int = 5, code_timeout: int = 2) -> dict:
         function_name = self.problem.function_signature.split("(")[0][4:]
         code = """
 import sys
@@ -72,7 +72,7 @@ print(int((time.time_ns() - start_time) / 1e6))
             if result["stderr"]:
                 return {"message": result["stderr"], "status": "Failed"}
             
-            return self.check_test_cases(result["stdout"])
+            return self.check_test_cases(result["stdout"], code_timeout)
 
         except subprocess.TimeoutExpired:
             return {"message": "Time limit exceeded", "status": "Failed"}
@@ -84,7 +84,7 @@ print(int((time.time_ns() - start_time) / 1e6))
             return {"message": str(e), "status": "Failed"}
         
 
-    def check_test_cases(self, data: str) -> dict:
+    def check_test_cases(self, data: str, code_timeout: int) -> dict:
         test_cases = self.problem.test_cases
         any_order = self.problem.any_order
 
@@ -93,6 +93,9 @@ print(int((time.time_ns() - start_time) / 1e6))
 
         data = data.split("\n")[:-1]
         time = data.pop()
+
+        if int(time) > code_timeout * 1000:
+            return {"message": "Time limit exceeded", "status": "Failed"}
 
         count = 0
         failed_index = -1
