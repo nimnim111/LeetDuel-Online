@@ -143,22 +143,6 @@ async def create_party(sid: str, data: dict) -> None:
     player = Player(data["username"], False, "", "", 0, 0, None)
     party = Party(sid, {sid: player}, None, "waiting", 0, 0, 0, [True, True, True], 0, 0)
     parties[party_code] = party
-    
-    # parties[party_code] = {
-    #     "host": sid,
-    #     "players": [
-    #         {
-    #             "sid": sid,
-    #             "username": data["username"],
-    #             "passed": False,
-    #             "current_score": 0,
-    #             "total_score": 0,
-    #             "finish_order": None,
-    #         }
-    #     ],
-    #     "problem": None,
-    #     "status": "waiting",
-    # }
 
     player_data = PlayerData(data["username"], party_code)
     await sio.emit("party_created", asdict(player_data), to=sid)

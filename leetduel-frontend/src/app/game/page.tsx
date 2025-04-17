@@ -399,7 +399,6 @@ function GameContent() {
 
   return (
     <>
-      {/* Modal overlay for round leaderboard */}
       {roundLeaderboard && (
         <div className="fixed inset-0 z-60 flex items-center justify-center">
           <div
@@ -446,7 +445,6 @@ function GameContent() {
           </div>
         </div>
       )}
-      {/* Modal overlay for final leaderboard */}
       {finalLeaderboard && (
         <div className="fixed inset-0 flex items-center justify-center bg-white dark:bg-gray-900 bg-opacity-60 z-60">
           <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 w-full max-w-md shadow-xl text-center">
