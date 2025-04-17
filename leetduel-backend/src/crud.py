@@ -1,12 +1,13 @@
 from sqlalchemy.orm import Session
 from .models import Problem
+from typing import List
 import random
 
 
-def get_problem(db: Session, difficulties: list[bool], problem_id: int = None) -> Problem:
+def get_problem(db: Session, difficulties: list[bool], problem_id: int | None = None) -> Problem | None:
     if problem_id is not None:
         return db.query(Problem).filter(Problem.problem_id == problem_id).first()
-    enabled_difficulties = []
+    enabled_difficulties: List[str] = []
     if difficulties[0]:
         enabled_difficulties.append("Easy")
     if difficulties[1]:
@@ -34,9 +35,9 @@ def create_problem(db: Session, title: str, description: str, difficulty: str, t
 def check_problem_exists(db: Session, title: str) -> bool:
     return db.query(Problem).filter(Problem.problem_name == title).first() is not None
 
-def increment_reports(db: Session, title: int):
+def increment_reports(db: Session, title: str):
     problem = db.query(Problem).filter(Problem.problem_name == title).first()
     if problem:
-        problem.reports = problem.reports + 1
+        problem.reports += 1
         db.commit()
         db.refresh(problem)

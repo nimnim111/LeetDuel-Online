@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, String, ForeignKey, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.dialects.postgresql import JSONB
 
-from .types import ProblemData
+from .dataclass import ProblemData
 
 
 Base = declarative_base()
