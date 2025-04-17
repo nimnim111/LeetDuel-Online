@@ -49,8 +49,6 @@ export interface TimeData {
 
 export interface LeaderboardData {
   leaderboard: { username: string; score: number }[];
-  round: number;
-  total_rounds: number;
 }
 
 export interface RoundData {

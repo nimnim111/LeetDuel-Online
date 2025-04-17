@@ -35,6 +35,10 @@ def create_problem(db: Session, title: str, description: str, difficulty: str, t
 def check_problem_exists(db: Session, title: str) -> bool:
     return db.query(Problem).filter(Problem.problem_name == title).first() is not None
 
+def check_problem_reports(db: Session, title: str) -> bool:
+    problem = db.query(Problem).filter(Problem.problem_name == title).first()
+    return problem.reports
+
 def increment_reports(db: Session, title: str):
     problem = db.query(Problem).filter(Problem.problem_name == title).first()
     if problem:

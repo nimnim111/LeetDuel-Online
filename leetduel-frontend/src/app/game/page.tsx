@@ -43,7 +43,6 @@ function GameContent() {
     { message: "Game started!", bold: true, color: "" },
   ]);
   const [chatInput, setChatInput] = useState("");
-
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const lineNumbersRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -66,7 +65,6 @@ function GameContent() {
   const lastCodeRef = useRef(code);
   const scrollIfAppendedRef = useRef(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
-
   const keyCounterRef = useRef(0);
 
   const [showMembers, setShowMembers] = useState(false);
@@ -75,17 +73,14 @@ function GameContent() {
     []
   );
   const [screen, setScreen] = useState<string>(username);
-
   const [homeCode, setHomeCode] = useState(starterCode(problem));
   const [homeConsole, setHomeConsole] = useState("Test case output");
 
   const [showHelp, setShowHelp] = useState(false);
   const helpModalRef = useRef<HTMLDivElement>(null);
   const [reported, setReported] = useState(false);
-
   const [waiting, setWaiting] = useState(false);
 
-  // New state for round tracking and leaderboard modals.
   const [roundInfo, setRoundInfo] = useState<RoundData>({
     current: 1,
     total: 1,
@@ -324,7 +319,6 @@ function GameContent() {
     console.log("Skip problem clicked");
   };
 
-  // Add startNextRound function
   const startNextRound = () => {
     socket.emit("start_next_round", { party_code: party });
   };
@@ -408,8 +402,7 @@ function GameContent() {
           <div className="relative z-60">
             <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 w-full max-w-md shadow-xl">
               <h2 className="text-2xl font-bold mb-6 text-center text-gray-800 dark:text-white">
-                Round {roundLeaderboard.round} of{" "}
-                {roundLeaderboard.total_rounds}
+                Round {roundInfo.current} of {roundInfo.total}
               </h2>
               <ul className="space-y-3">
                 {roundLeaderboard.leaderboard.map((entry, index) => (
