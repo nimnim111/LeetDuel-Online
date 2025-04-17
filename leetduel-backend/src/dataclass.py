@@ -149,13 +149,9 @@ class Score:
 @dataclass
 class LeaderboardData:
     leaderboard: List[Score]
-    rounds: int
-    total_rounds: int
 
-    def __init__(self, leaderboard: List[Score], rounds: int, total_rounds: int):
+    def __init__(self, leaderboard: List[Score]):
         self.leaderboard = leaderboard
-        self.rounds = rounds
-        self.total_rounds = total_rounds
 
 
 @dataclass

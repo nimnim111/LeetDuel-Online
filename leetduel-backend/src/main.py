@@ -1,6 +1,7 @@
 import random
 import string
 import time
+import math
 from dataclasses import asdict
 
 import socketio
@@ -125,7 +126,7 @@ async def finish_round(party_code: str) -> None:
     leaderboard_players = sorted(list(party.players.values()), key=lambda p: p.total_score, reverse=True)
 
     leaderboard = [Score(p.username, p.total_score) for p in leaderboard_players]
-    leaderboard_data = LeaderboardData(leaderboard, party.current_round, party.total_rounds)
+    leaderboard_data = LeaderboardData(leaderboard)
 
     if party.current_round < party.total_rounds:
         await sio.emit("round_leaderboard", asdict(leaderboard_data), room=party_code)
@@ -305,7 +306,7 @@ async def submit_code(sid: str, data: dict) -> None:
         message_to_room = f"{data['username']} passed {str(r['passed test cases'])}/{str(r['total test cases'])} test cases in {str(r['time'])}ms."
         if "failed_test" in r and r["failed_test"] is not None:
             message_to_client += "\n" + r["failed_test"] + (f" \nstdout: {r['stdout']}")
-            player.current_score = max(player.current_score, 100 * r["passed test cases"] / (max(1, float(r["time"])) * 10 * r["total test cases"]))
+            player.current_score = max(player.current_score, 100 * r["passed test cases"] / (math.log10(max(2, float(r["time"]))) * 10 * r["total test cases"]))
 
     if r["status"] == "Accepted":
         color = "#66BB6A"
@@ -316,10 +317,10 @@ async def submit_code(sid: str, data: dict) -> None:
         try:
             runtime = float(r["time"])
         except Exception:
-            runtime = 1
-        if runtime == 0:
-            runtime = 1
-        new_score = 100 * r["passed test cases"] / (runtime * player.finish_order * r["total test cases"])
+            runtime = 2
+        if runtime < 2:
+            runtime = 2
+        new_score = 100 * r["passed test cases"] / (math.log10(runtime) * player.finish_order * r["total test cases"])
         if new_score > player.current_score:
             player.current_score = new_score
         await sio.emit("passed_all", to=sid)

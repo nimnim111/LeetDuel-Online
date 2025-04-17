@@ -24,6 +24,7 @@ function HomeContent() {
     PartyStatus.UNJOINED
   );
   const [localPartyCode, setLocalPartyCode] = useState("");
+
   const [timeLimit, setTimeLimit] = useState("");
   const [rounds, setRounds] = useState("");
   const [easy, setEasy] = useState(true);
@@ -210,7 +211,7 @@ function HomeContent() {
       socket.emit("start_game", {
         party_code: localPartyCode,
         time_limit: timeLimit,
-        rounds: rounds, // pass rounds setting to the server
+        rounds: rounds,
         easy,
         medium,
         hard,
