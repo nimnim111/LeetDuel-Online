@@ -22,7 +22,7 @@ export type GameContextType = {
 
 export interface PlayerData {
   username: string;
-  party_code?: string;
+  party_code: string;
   players?: string[];
 }
 
@@ -45,4 +45,15 @@ export interface MessageData {
 
 export interface TimeData {
   time_left: number;
+}
+
+export interface LeaderboardData {
+  leaderboard: { username: string; score: number }[];
+  round: number;
+  total_rounds: number;
+}
+
+export interface RoundData {
+  current: number;
+  total: number;
 }

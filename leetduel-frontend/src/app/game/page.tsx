@@ -8,6 +8,8 @@ import {
   GameData,
   TimeData,
   PlayerData,
+  LeaderboardData,
+  RoundData,
 } from "../../types";
 import socket from "../../socket";
 import Editor from "@monaco-editor/react";
@@ -69,7 +71,9 @@ function GameContent() {
 
   const [showMembers, setShowMembers] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
-  const [members, setMembers] = useState<string[]>([]);
+  const [members, setMembers] = useState<{ username: string; score: number }[]>(
+    []
+  );
   const [screen, setScreen] = useState<string>(username);
 
   const [homeCode, setHomeCode] = useState(starterCode(problem));
@@ -78,6 +82,18 @@ function GameContent() {
   const [showHelp, setShowHelp] = useState(false);
   const helpModalRef = useRef<HTMLDivElement>(null);
   const [reported, setReported] = useState(false);
+
+  const [waiting, setWaiting] = useState(false);
+
+  // New state for round tracking and leaderboard modals.
+  const [roundInfo, setRoundInfo] = useState<RoundData>({
+    current: 1,
+    total: 1,
+  });
+  const [roundLeaderboard, setRoundLeaderboard] =
+    useState<LeaderboardData | null>(null);
+  const [finalLeaderboard, setFinalLeaderboard] =
+    useState<LeaderboardData | null>(null);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -140,33 +156,11 @@ function GameContent() {
     });
 
     socket.on("message_received", (data: MessageData) => {
-      setChatMessages((prevMessages) => [
-        ...prevMessages,
-        {
-          message: `${data.username}: ${data.message}`,
-          bold: false,
-          color: "",
-        },
-      ]);
-    });
-
-    socket.on("player_submit", (data: MessageData) => {
       setChatMessages((prevMessages) => [...prevMessages, data]);
     });
 
-    socket.on("announcement", (data: MessageData) => {
-      setChatMessages((prevMessages) => [
-        ...prevMessages,
-        { message: data.message, bold: true, color: "" },
-      ]);
-    });
-
     socket.on("game_over", () => {
-      router.push(
-        `/?party=${encodeURIComponent(party)}&username=${encodeURIComponent(
-          username
-        )}`
-      );
+      backToLobby();
     });
 
     socket.on("leave_party", () => {
@@ -174,6 +168,7 @@ function GameContent() {
     });
 
     socket.on("game_started", (data: GameData) => {
+      socket.emit("leave_spectate_rooms", { party_code: party });
       setSkipButtonDisabled(false);
       setProblem(data.problem);
       setScreen(username);
@@ -183,13 +178,16 @@ function GameContent() {
       setHomeConsole("Test case output");
       setPassedAll(false);
       setReported(false);
+      setWaiting(false);
+      setRoundLeaderboard(null);
+      setFinalLeaderboard(null);
+      retrieveRoundInfo();
       retrieveTime();
       socket.emit("code_update", { party_code: party, code: code });
       socket.emit("console_update", {
         party_code: party,
         console_output: consoleOutput,
       });
-      router.push(`/game?party=${encodeURIComponent(data.party_code)}`);
     });
 
     socket.on("update_time", (data: TimeData) => {
@@ -201,7 +199,12 @@ function GameContent() {
     });
 
     socket.on("send_players", (data: PlayerData) => {
-      setMembers(data.players ? data.players : []);
+      const players = data.players
+        ? data.players.map((p: any) =>
+            typeof p === "string" ? { username: p, score: 0 } : p
+          )
+        : [];
+      setMembers(players);
     });
 
     socket.on("updated_code", (data: MessageData) => {
@@ -212,11 +215,23 @@ function GameContent() {
       setConsoleOutput(data.message);
     });
 
+    socket.on("round_leaderboard", (data: LeaderboardData) => {
+      setWaiting(true);
+      setRoundLeaderboard(data);
+    });
+
+    socket.on("final_leaderboard", (data: LeaderboardData) => {
+      setWaiting(true);
+      setFinalLeaderboard(data);
+    });
+
+    socket.on("update_round_info", (data: RoundData) => {
+      setRoundInfo(data);
+    });
+
     return () => {
       socket.off("code_submitted");
       socket.off("message_received");
-      socket.off("player_submit");
-      socket.off("announcement");
       socket.off("game_over");
       socket.off("leave_party");
       socket.off("game_started");
@@ -225,6 +240,9 @@ function GameContent() {
       socket.off("send_players");
       socket.off("updated_code");
       socket.off("updated_console");
+      socket.off("round_leaderboard");
+      socket.off("final_leaderboard");
+      socket.off("update_round_info");
     };
   }, [problem, router]);
 
@@ -259,13 +277,19 @@ function GameContent() {
   }, [chatMessages]);
 
   function retrieveTime() {
-    socket.emit("retrieve_time", {
-      party_code: party,
-    });
+    socket.emit("retrieve_time", { party_code: party });
+  }
+
+  function retrieveRoundInfo() {
+    socket.emit("retrieve_round_info", { party_code: party });
   }
 
   useEffect(() => {
     retrieveTime();
+  }, []);
+
+  useEffect(() => {
+    retrieveRoundInfo();
   }, []);
 
   const runCode = () => {
@@ -298,6 +322,11 @@ function GameContent() {
     setSkipButtonDisabled(true);
     socket.emit("skip_problem", { party_code: party });
     console.log("Skip problem clicked");
+  };
+
+  // Add startNextRound function
+  const startNextRound = () => {
+    socket.emit("start_next_round", { party_code: party });
   };
 
   const handleCodeChange = (e: string | undefined) => {
@@ -340,9 +369,7 @@ function GameContent() {
       setCode(homeCode);
       setConsoleOutput(homeConsole);
       setButtonDisabled(false);
-      socket.emit("leave_spectate_rooms", {
-        party_code: party,
-      });
+      socket.emit("leave_spectate_rooms", { party_code: party });
       return;
     }
     setScreen(member);
@@ -354,18 +381,121 @@ function GameContent() {
     setReported(true);
   };
 
+  const backToLobby = () => {
+    router.push(
+      `/?party=${encodeURIComponent(party)}&username=${encodeURIComponent(
+        username
+      )}`
+    );
+  };
+
+  const continueToNext = () => {
+    if (roundInfo.current === roundInfo.total) {
+      backToLobby();
+    } else {
+      startNextRound();
+    }
+  };
+
   return (
     <>
-      <div className="fixed top-4 right-[18%] z-50">
-        <button
-          onClick={handlePlayersClick}
-          className="bg-blue-600 transition hover:bg-blue-700 text-white py-2 px-4 rounded-md shadow"
-        >
-          Players
-        </button>
-      </div>
+      {roundLeaderboard && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center">
+          <div
+            className="absolute inset-0"
+            style={{ backdropFilter: "blur(10px)" }}
+          />
+          <div className="relative z-60">
+            <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 w-full max-w-md shadow-xl">
+              <h2 className="text-2xl font-bold mb-6 text-center text-gray-800 dark:text-white">
+                Round {roundLeaderboard.round} of{" "}
+                {roundLeaderboard.total_rounds}
+              </h2>
+              <ul className="space-y-3">
+                {roundLeaderboard.leaderboard.map((entry, index) => (
+                  <li
+                    key={index}
+                    className="flex justify-between items-center px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-md"
+                  >
+                    <span className="font-semibold">
+                      {index + 1}. {entry.username}
+                    </span>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      {entry.score.toFixed(2)} pts
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <button
+                onClick={() => {
+                  setRoundLeaderboard(null);
+                  setFinalLeaderboard(null);
+                }}
+                className="mt-4 bg-green-600 hover:bg-green-700 m-2 text-white py-2 px-6 rounded-lg transition"
+              >
+                View Code
+              </button>
+              <button
+                onClick={startNextRound}
+                className="mt-4 bg-blue-600 hover:bg-blue-700 text-white py-2 px-6 rounded-lg transition"
+              >
+                Start Next Round
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {finalLeaderboard && (
+        <div className="fixed inset-0 flex items-center justify-center bg-white dark:bg-gray-900 bg-opacity-60 z-60">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 w-full max-w-md shadow-xl text-center">
+            <h2 className="text-3xl font-bold mb-6 text-gray-800 dark:text-white">
+              🏆 Final Leaderboard
+            </h2>
+            <ul className="space-y-3 mb-6 text-left">
+              {finalLeaderboard.leaderboard.map((entry, index) => (
+                <li
+                  key={index}
+                  className="flex justify-between items-center px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-md"
+                >
+                  <span className="font-semibold">
+                    {index + 1}. {entry.username}
+                  </span>
+                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                    {entry.score.toFixed(2)} pts
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <button
+              onClick={() => {
+                setRoundLeaderboard(null);
+                setFinalLeaderboard(null);
+              }}
+              className="mt-4 bg-green-600 hover:bg-green-700 m-2 text-white py-2 px-6 rounded-lg transition"
+            >
+              View Code
+            </button>
+            <button
+              onClick={backToLobby}
+              className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-6 rounded-lg transition"
+            >
+              Return to Lobby
+            </button>
+          </div>
+        </div>
+      )}
+      {!finalLeaderboard && (
+        <div className="fixed top-4 right-[18%] z-50">
+          <button
+            onClick={handlePlayersClick}
+            className="bg-blue-600 transition hover:bg-blue-700 text-white py-2 px-4 rounded-md shadow"
+          >
+            Players
+          </button>
+        </div>
+      )}
       {showMembers && (
-        <div className="absolute top-15 right-[18%] z-50" ref={modalRef}>
+        <div className="fixed top-15 right-[18%] z-50" ref={modalRef}>
           <div className="bg-white dark:bg-gray-700 p-6 rounded shadow-lg w-80">
             <ul>
               {members.map((member, index) => (
@@ -373,19 +503,23 @@ function GameContent() {
                   key={index}
                   className="flex justify-between items-center py-2 border-b border-gray-300 dark:border-gray-400"
                 >
-                  <span>{member}</span>
+                  <span>{member.username}</span>
                   <button
                     className={`px-2 py-1 rounded text-white ${
-                      member === username
+                      member.username === username
                         ? "bg-green-500 transition hover:bg-green-600"
-                        : passedAll
+                        : passedAll || waiting
                         ? "bg-green-500 transition hover:bg-green-600"
                         : "bg-gray-500 cursor-not-allowed"
                     }`}
-                    disabled={member === username ? false : !passedAll}
-                    onClick={() => handleSpectateClick(member)}
+                    disabled={
+                      member.username === username
+                        ? false
+                        : !passedAll && !waiting
+                    }
+                    onClick={() => handleSpectateClick(member.username)}
                   >
-                    {member === username ? "Home" : "Spectate"}
+                    {member.username === username ? "Home" : "Spectate"}
                   </button>
                 </li>
               ))}
@@ -397,8 +531,12 @@ function GameContent() {
         className="min-h-screen bg-gray-100 dark:bg-gray-900 p-6 pr-[18%] text-gray-900 dark:text-gray-100"
         style={{ position: "relative" }}
       >
+        {/* Top left timer and round info */}
         <div className="absolute top-0 left-0 m-4 p-2 bg-white dark:bg-gray-800 rounded shadow text-lg">
-          {formatTime(timeLeft)}
+          <div>{formatTime(timeLeft)}</div>
+          <div>
+            Round {roundInfo.current} of {roundInfo.total}
+          </div>
         </div>
         <div className="w-full h-[75vh] mx-auto mr-[16.66%]">
           <h1 className="text-4xl mb-8 text-center">Leetduel</h1>
@@ -425,9 +563,9 @@ function GameContent() {
               )}
               <button
                 onClick={runCode}
-                disabled={screen !== username || buttonDisabled}
+                disabled={screen !== username || buttonDisabled || waiting}
                 className={`absolute bottom-4 right-4 ${
-                  screen !== username || buttonDisabled
+                  screen !== username || buttonDisabled || waiting
                     ? "bg-gray-500 cursor-not-allowed"
                     : "bg-blue-600 hover:bg-blue-700"
                 } text-white py-2 px-4 rounded-lg transition`}
@@ -449,7 +587,7 @@ function GameContent() {
                     minimap: { enabled: false },
                     inlineSuggest: { enabled: false },
                     folding: false,
-                    readOnly: screen !== username,
+                    readOnly: screen !== username || waiting,
                   }}
                 />
               </div>
@@ -511,11 +649,15 @@ function GameContent() {
             Leave Game
           </button>
           <button
-            onClick={skipProblem}
+            onClick={waiting ? continueToNext : skipProblem}
             disabled={skipButtonDisabled}
-            className="bg-gray-600 transition hover:bg-gray-700 text-white py-2 px-4 rounded"
+            className={`${
+              waiting
+                ? "bg-green-600 transition hover:bg-green-700"
+                : "bg-gray-600 transition hover:bg-gray-700"
+            } text-white py-2 px-4 rounded`}
           >
-            Skip Problem
+            {waiting ? "Continue" : "Skip Problem"}
           </button>
         </div>
         {showHelp && (
@@ -540,14 +682,16 @@ function GameContent() {
             </div>
           </div>
         )}
-        <div className="fixed bottom-4 right-[18%] z-50">
-          <button
-            className="bg-gray-600 transition hover:bg-gray-700 text-white py-2 px-4 rounded"
-            onClick={() => setShowHelp(true)}
-          >
-            Help
-          </button>
-        </div>
+        {!finalLeaderboard && (
+          <div className="fixed bottom-4 right-[18%] z-50">
+            <button
+              className="bg-gray-600 transition hover:bg-gray-700 text-white py-2 px-4 rounded"
+              onClick={() => setShowHelp(true)}
+            >
+              Help
+            </button>
+          </div>
+        )}
       </div>
     </>
   );

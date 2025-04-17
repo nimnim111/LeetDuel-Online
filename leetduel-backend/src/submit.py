@@ -1,25 +1,24 @@
 import json
 import subprocess
-import time
 import requests
 from ratelimit import limits, RateLimitException
 
-from src.classes.ListNode import ListNode, linkedList
 from src.config import code_execution_url
+from src.dataclass import ProblemData
 
 
 
 class Problem:
 
 
-    def __init__(self, language_id: int, problem: dict):
+    def __init__(self, language_id: int, problem: ProblemData):
         self.language_id = language_id
         self.problem = problem
-        self.stdinput = json.dumps([test_case["input"] for test_case in problem["test_cases"]])
+        self.stdinput = json.dumps([test_case.input for test_case in problem.test_cases])
 
 
-    def submit_code(self, code: str, timeout: int = 5) -> dict:
-        function_name = self.problem["function_signature"].split("(")[0][4:]
+    def submit_code(self, code: str, timeout: int = 5, code_timeout: int = 2) -> dict[str, str | int]:
+        function_name = self.problem.function_signature.split("(")[0][4:]
         code = """
 import sys
 import json
@@ -68,10 +67,13 @@ print(int((time.time_ns() - start_time) / 1e6))
         try:
             result = self.run_subprocess(code, timeout)
 
+            if not result:
+                return {"message": "No response", "status": "Failed"}
+
             if result["stderr"]:
                 return {"message": result["stderr"], "status": "Failed"}
             
-            return self.check_test_cases(result["stdout"])
+            return self.check_test_cases(result["stdout"], code_timeout)
 
         except subprocess.TimeoutExpired:
             return {"message": "Time limit exceeded", "status": "Failed"}
@@ -83,15 +85,18 @@ print(int((time.time_ns() - start_time) / 1e6))
             return {"message": str(e), "status": "Failed"}
         
 
-    def check_test_cases(self, data: str) -> dict:
-        test_cases = self.problem["test_cases"]
-        any_order = self.problem["any_order"]
+    def check_test_cases(self, d: str, code_timeout: int) -> dict[str, str | int]:
+        test_cases = self.problem.test_cases
+        any_order = self.problem.any_order
 
-        if not data:
+        if not d:
             return {"message": "No output", "status": "Failed"}
 
-        data = data.split("\n")[:-1]
-        time = data.pop()
+        data: list[str] = d.split("\n")[:-1]
+        time: str = data.pop()
+
+        if int(time) > code_timeout * 1000:
+            return {"message": "Time limit exceeded", "status": "Failed"}
 
         count = 0
         failed_index = -1
@@ -107,7 +112,7 @@ print(int((time.time_ns() - start_time) / 1e6))
             
             
             user_output = data[i]
-            test_output = test_cases[i]["output"]
+            test_output = test_cases[i].output
 
             try:
                 if any_order and isinstance(eval(user_output), list) and isinstance(eval(test_output), list):
@@ -133,13 +138,13 @@ print(int((time.time_ns() - start_time) / 1e6))
         r["passed test cases"] = count
         
         if failed_index != -1:
-            r["failed_test"] = f"Input: {str(eval(test_cases[failed_index]['input']))}\nExpected {test_cases[failed_index]['output']}, got {data[failed_index]}"
+            r["failed_test"] = f"Input: {str(eval(test_cases[failed_index].input))}\nExpected {test_cases[failed_index].output}, got {data[failed_index]}"
 
         return r
     
 
     @limits(calls=5, period=10)
-    def run_subprocess(self, code, timeout):
+    def run_subprocess(self, code: str, timeout: int) -> dict[str, str]:
         if code_execution_url == "":
             p = subprocess.run(
                 ["python3", "-c", code],
