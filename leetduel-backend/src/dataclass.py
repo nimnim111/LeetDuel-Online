@@ -162,3 +162,23 @@ class RoundInfo:
     def __init__(self, current: int, total: int):
         self.current = current
         self.total = total
+
+
+@dataclass
+class SubmissionData:
+    accepted: bool
+    message: str | None = None
+    time: str = ""
+    total_test_cases: int = 0
+    passed_test_cases: int = 0
+    failed_test: str = ""
+    stdout: str = ""
+
+    def __init__(self, accepted: bool, message: str | None = None, time: str = "", total_test_cases: int = 0, passed_test_cases: int = 0, failed_test: str = "", stdout: str = ""):
+        self.accepted = accepted
+        self.message = message
+        self.time = time
+        self.total_test_cases = total_test_cases
+        self.passed_test_cases = passed_test_cases
+        self.failed_test = failed_test
+        self.stdout = stdout

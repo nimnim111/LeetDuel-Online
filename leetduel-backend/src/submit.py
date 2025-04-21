@@ -4,7 +4,7 @@ import requests
 from ratelimit import limits, RateLimitException
 
 from src.config import code_execution_url
-from src.dataclass import ProblemData
+from src.dataclass import ProblemData, SubmissionData
 
 
 
@@ -17,7 +17,7 @@ class Problem:
         self.stdinput = json.dumps([test_case.input for test_case in problem.test_cases])
 
 
-    def submit_code(self, code: str, timeout: int = 5, code_timeout: int = 2) -> dict[str, str | int]:
+    def submit_code(self, code: str, timeout: int = 5, code_timeout: int = 2) -> SubmissionData:
         function_name = self.problem.function_signature.split("(")[0][4:]
         code = """
 import sys
@@ -68,39 +68,40 @@ print(int((time.time_ns() - start_time) / 1e6))
             result = self.run_subprocess(code, timeout)
 
             if not result:
-                return {"message": "No response", "status": "Failed"}
+                return SubmissionData(False, "No response")
 
             if result["stderr"]:
-                return {"message": result["stderr"], "status": "Failed"}
+                return SubmissionData(False, result["stderr"])
             
             return self.check_test_cases(result["stdout"], code_timeout)
 
         except subprocess.TimeoutExpired:
-            return {"message": "Time limit exceeded", "status": "Failed"}
+            return SubmissionData(False, "Time limit exceeded")
         
         except RateLimitException:
-            return {"message": "Rate limited! Please wait 5 seconds and try again.", "status": "Failed"}
+            return SubmissionData(False, "Rate limited! Please wait 5 seconds and try again.")
         
         except Exception as e:
-            return {"message": str(e), "status": "Failed"}
+            return SubmissionData(False, str(e))
         
 
-    def check_test_cases(self, d: str, code_timeout: int) -> dict[str, str | int]:
+    def check_test_cases(self, d: str, code_timeout: int) -> SubmissionData:
         test_cases = self.problem.test_cases
         any_order = self.problem.any_order
 
         if not d:
-            return {"message": "No output", "status": "Failed"}
+            return SubmissionData(False, "No output")
 
         data: list[str] = d.split("\n")[:-1]
         time: str = data.pop()
 
         if int(time) > code_timeout * 1000:
-            return {"message": "Time limit exceeded", "status": "Failed"}
+            return SubmissionData(False, "Time limit exceeded")
 
         count = 0
         failed_index = -1
 
+        submission = SubmissionData(True, None, time, len(test_cases))
         r = {"status": "Accepted", "total test cases": len(test_cases), "time": time}
 
         n = len(test_cases)
@@ -126,21 +127,21 @@ print(int((time.time_ns() - start_time) / 1e6))
                 print(e)
 
             if user_output != test_output:
-                r["status"] = "Failed"
+                submission.accepted = False
                 if failed_index == -1:
                     failed_index = i
-                    r["stdout"] = output_list[i]
+                    submission.stdout = output_list[i]
 
                 continue
 
             count += 1
         
-        r["passed test cases"] = count
+        submission.passed_test_cases = count
         
         if failed_index != -1:
-            r["failed_test"] = f"Input: {str(eval(test_cases[failed_index].input))}\nExpected {test_cases[failed_index].output}, got {data[failed_index]}"
+            submission.failed_test = f"Input: {str(eval(test_cases[failed_index].input))}\nExpected {test_cases[failed_index].output}, got {data[failed_index]}"
 
-        return r
+        return submission
     
 
     @limits(calls=5, period=10)

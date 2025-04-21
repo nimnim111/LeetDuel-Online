@@ -188,16 +188,20 @@ function HomeContent() {
       setMessage("Please enter a valid time limit.");
       return;
     }
-    if (isNaN(Number(rounds)) || (rounds && Number(rounds) < 1)) {
+    if (
+      isNaN(Number(rounds)) ||
+      (rounds && Number(rounds) < 1) ||
+      Number(rounds) > 50
+    ) {
       setStartLoading(false);
       setGoodBanner(false);
       setMessage("Please enter a valid number of rounds.");
       return;
     }
-    if (timeLimit && Number(timeLimit) < 1) {
+    if ((timeLimit && Number(timeLimit) < 1) || Number(timeLimit) > 120) {
       setStartLoading(false);
       setGoodBanner(false);
-      setMessage("Time limit must be at least 1 minute.");
+      setMessage("Time limit must be between 1 and 120 minutes.");
       return;
     }
     if (!easy && !medium && !hard) {
