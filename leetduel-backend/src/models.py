@@ -3,6 +3,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.dialects.postgresql import JSONB
 
 from .dataclass import ProblemData
+from typing import cast, List
 
 
 Base = declarative_base()
@@ -18,9 +19,16 @@ class Problem(Base):
     any_order = Column(Boolean)
     reports = Column(Integer)
 
-
     def asdata(self) -> ProblemData:
-        return ProblemData(self.problem_name, self.problem_description, self.function_signature, self.problem_difficulty, self.test_cases, self.any_order, self.reports)
+        return ProblemData(
+            cast(str, self.problem_name),
+            cast(str, self.problem_description),
+            cast(str, self.function_signature),
+            cast(str, self.problem_difficulty),
+            cast(List[dict[str, str]], self.test_cases),
+            cast(bool, self.any_order),
+            cast(int, self.reports)
+        )
 
 
 class Party(Base):

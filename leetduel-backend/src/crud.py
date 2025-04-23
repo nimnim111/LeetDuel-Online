@@ -35,13 +35,12 @@ def create_problem(db: Session, title: str, description: str, difficulty: str, t
 def check_problem_exists(db: Session, title: str) -> bool:
     return db.query(Problem).filter(Problem.problem_name == title).first() is not None
 
-def check_problem_reports(db: Session, title: str) -> bool:
-    problem = db.query(Problem).filter(Problem.problem_name == title).first()
-    return problem.reports
+def check_problem_reports(db: Session, title: str) -> int:
+    reports = db.query(Problem.reports).filter(Problem.problem_name == title).scalar()
+    return reports if reports is not None else 0
 
-def increment_reports(db: Session, title: str):
-    problem = db.query(Problem).filter(Problem.problem_name == title).first()
-    if problem:
-        problem.reports += 1
+def increment_reports(db: Session, title: str) -> None:
+    reports = db.query(Problem.reports).filter(Problem.problem_name == title).scalar()
+    if reports is not None:
+        db.query(Problem).filter(Problem.problem_name == title).update({"reports": reports + 1})
         db.commit()
-        db.refresh(problem)
