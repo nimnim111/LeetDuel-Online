@@ -279,7 +279,7 @@ async def start_game(sid: str, data: dict, difficulties: List[bool] = []) -> Non
 
 @sio.event
 async def submit_code(sid: str, data: dict) -> None:
-    print(f"submit_code event received from {sid}: {data}")
+    print(f"submit_code event received from {sid}")
     party_code = data["party_code"]
 
     if party_code not in parties:
