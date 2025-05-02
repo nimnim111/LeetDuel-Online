@@ -44,7 +44,5 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-problems.sql
-
 .pytest_cache
 .vscode

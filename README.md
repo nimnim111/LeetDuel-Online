@@ -1,5 +1,21 @@
 # LeetDuel
 
+## Database Setup
+
+Create a local Postgres database using psql. To do this, make sure you first have Postgres and psql installed:
+
+```
+brew install postgresql
+```
+
+Then, run these commands to create a database and copy the problems from problems/problems.sql
+
+```
+createdb -U postgres leetduel_database
+cd problems
+psql -U postgres -d leetduel_database -f problems.sql
+```
+
 ## Local Backend
 
 To run the backend server locally, cd into leetduel-backend and create a venv. In the venv, run:
@@ -11,7 +27,7 @@ pip install -r requirements.txt
 In order to run this locally, you need the `DATABASE_URL` environment variable set in a `.env.local` file set in the `leetduel-backend` directory. To do this, create a `.env.local` and paste in your database URL:
 
 ```
-DATABASE_URL=<YOUR_DATABASE_URL>
+DATABASE_URL="postgresql://postgres:secret@localhost/leetduel_database"
 ```
 
 To start the server, run:
@@ -31,6 +47,7 @@ NEXT_PUBLIC_SERVER_URL="http://localhost:8000"
 ```
 
 To run the frontend server, cd into leetduel-frontend and run:
+
 ```
 npm install
 npm run dev
