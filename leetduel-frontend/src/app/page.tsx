@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import socket from "../socket";
-import { useGame } from "../context/GameContext";
+import { useGame } from "@/context/GameContext";
 import { PlayerData, GameData, ErrorData } from "../types";
 import Button from "./button";
 import Color from "./colors";
