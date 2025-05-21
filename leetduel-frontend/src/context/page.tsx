@@ -1,6 +1,6 @@
 "use client";
 import { useState, useRef, useEffect, Suspense } from "react";
-import { useGame } from "/../../context/GameContext";
+import { useGame } from "../../../context/GameContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Problem,
