@@ -6,37 +6,42 @@ import { useGame } from "../context/GameContext";
 import { PlayerData, GameData, ErrorData } from "../types";
 import Button from "./button";
 import Color from "./colors";
+import { initializeApp } from "firebase/app";
+import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, User } from "firebase/auth";
+import { getAnalytics, isSupported } from "firebase/analytics";
 
-enum PartyStatus {
-  UNJOINED = "unjoined",
-  JOINED = "joined",
-  CREATED = "created",
+// Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyDmgrLZNes7VmGjRA3hCcXDTvbsq0OgK9Y",
+  authDomain: "leetduel2.firebaseapp.com",
+  projectId: "leetduel2",
+  storageBucket: "leetduel2.firebasestorage.app",
+  messagingSenderId: "1033323686755",
+  appId: "1:1033323686755:web:492bb19f05c2796b158156",
+  measurementId: "G-89JPNDQM7P"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const provider = new GoogleAuthProvider();
+
+// Initialize analytics only on the client side
+let analytics = null;
+if (typeof window !== 'undefined') {
+  isSupported().then(yes => yes && (analytics = getAnalytics(app)));
 }
 
 function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { setProblem, setPartyCode, setUsername } = useGame();
-  const [username, localSetUsername] = useState("");
+  const [user, setUser] = useState<User | null>(null);
   const [message, setMessage] = useState("");
   const [members, setMembers] = useState<string[]>([]);
-  const [partyStatus, setPartyStatus] = useState<PartyStatus>(
-    PartyStatus.UNJOINED
-  );
-  const [localPartyCode, setLocalPartyCode] = useState("");
-
-  const [timeLimit, setTimeLimit] = useState("");
-  const [rounds, setRounds] = useState("");
-  const [easy, setEasy] = useState(true);
-  const [medium, setMedium] = useState(true);
-  const [hard, setHard] = useState(true);
+  const [matchmakingLoading, setMatchmakingLoading] = useState(false);
   const [showBanner, setShowBanner] = useState(false);
   const [goodBanner, setGoodBanner] = useState(true);
-
-  const [createLoading, setCreateLoading] = useState(false);
-  const [joinLoading, setJoinLoading] = useState(false);
-  const [startLoading, setStartLoading] = useState(false);
-  const [leaveLoading, setLeaveLoading] = useState(false);
 
   const [delayedMousePos, setDelayedMousePos] = useState({ x: 0, y: 0 });
   const mousePosRef = useRef({ x: 0, y: 0 });
@@ -59,57 +64,15 @@ function HomeContent() {
   }, []);
 
   useEffect(() => {
-    const qpParty = searchParams.get("party");
-    const qpUsername = searchParams.get("username");
-    if (qpParty && partyStatus === PartyStatus.UNJOINED) {
-      setLocalPartyCode(qpParty);
-      setPartyCode(qpParty);
-      setPartyStatus(PartyStatus.JOINED);
-      if (qpUsername) {
-        localSetUsername(qpUsername);
-      }
-    }
-  }, [searchParams, setPartyCode]);
+    // Listen for auth state changes
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
-    socket.on("party_created", (data: PlayerData) => {
-      if (!data.party_code) {
-        setGoodBanner(false);
-        setMessage("Party creation error");
-        setCreateLoading(false);
-        return;
-      }
-      setGoodBanner(true);
-      setMessage(`Party created with code: ${data.party_code}`);
-      setLocalPartyCode(data.party_code);
-      setPartyCode(data.party_code);
-      setPartyStatus(PartyStatus.CREATED);
-      setUsername(username);
-      setMembers([data.username]);
-      setCreateLoading(false);
-    });
-    socket.on("players_update", (data: PlayerData) => {
-      setMembers(data.players ? data.players : []);
-    });
-    socket.on("player_joined", (data: PlayerData) => {
-      if (!data.players) {
-        setGoodBanner(false);
-        setMessage("Party join error");
-        setJoinLoading(false);
-        return;
-      }
-      setGoodBanner(true);
-      setMessage(`${message}\n${data.username} joined`);
-      setPartyStatus((prev) =>
-        prev === PartyStatus.CREATED ? prev : PartyStatus.JOINED
-      );
-      setUsername(username);
-      setMembers(data.players);
-      setJoinLoading(false);
-    });
-    socket.on("player_left", (data: PlayerData) => {
-      setMembers((prev) => prev.filter((member) => member !== data.username));
-    });
     socket.on("game_started", (data: GameData) => {
       setGoodBanner(true);
       setProblem(data.problem);
@@ -117,32 +80,15 @@ function HomeContent() {
       router.push(`/game?party=${encodeURIComponent(data.party_code)}`);
     });
     socket.on("error", (data: ErrorData) => {
-      setJoinLoading(false);
-      setStartLoading(false);
-      if (data.message === "Party not found") {
-        setPartyStatus(PartyStatus.UNJOINED);
-      }
+      setMatchmakingLoading(false);
       setGoodBanner(false);
       setMessage(`Error: ${data.message}`);
     });
-    socket.on("activate_settings", () => {
-      setPartyStatus(PartyStatus.CREATED);
-    });
-    socket.on("set_party_code", (data: GameData) => {
-      setLocalPartyCode(data.party_code);
-      setPartyCode(data.party_code);
-    });
     return () => {
-      socket.off("party_created");
-      socket.off("players_update");
-      socket.off("player_joined");
-      socket.off("player_left");
       socket.off("game_started");
       socket.off("error");
-      socket.off("activate_settings");
-      socket.off("set_party_code");
     };
-  }, [router, setProblem, setPartyCode, setUsername, username, message]);
+  }, [router, setProblem, setPartyCode]);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
@@ -153,364 +99,136 @@ function HomeContent() {
     return () => clearTimeout(timer);
   }, [message]);
 
-  useEffect(() => {
-    if (partyStatus) {
-      console.log("Party status: ", partyStatus);
-    }
-  }, [partyStatus, setPartyStatus]);
-
-  useEffect(() => {
-    if (localPartyCode) {
-      socket.emit("player_opened", { party_code: localPartyCode });
-    }
-  }, [localPartyCode]);
-
-  const createParty = () => {
-    if (username) {
-      socket.emit("create_party", { username });
-      return;
-    }
-    setCreateLoading(false);
-  };
-
-  const joinParty = () => {
-    if (username) {
-      socket.emit("join_party", { username, party_code: localPartyCode });
-      return;
-    }
-    setJoinLoading(false);
-  };
-
-  const startGame = () => {
-    if (isNaN(Number(timeLimit))) {
-      setStartLoading(false);
+  const handleGoogleSignIn = async () => {
+    try {
+      const result = await signInWithPopup(auth, provider);
+      setUser(result.user);
+    } catch (error) {
+      console.error("Error signing in with Google:", error);
       setGoodBanner(false);
-      setMessage("Please enter a valid time limit.");
-      return;
-    }
-    if (
-      isNaN(Number(rounds)) ||
-      (rounds && Number(rounds) < 1) ||
-      Number(rounds) > 50
-    ) {
-      setStartLoading(false);
-      setGoodBanner(false);
-      setMessage("Please enter a valid number of rounds.");
-      return;
-    }
-    if ((timeLimit && Number(timeLimit) < 1) || Number(timeLimit) > 120) {
-      setStartLoading(false);
-      setGoodBanner(false);
-      setMessage("Time limit must be between 1 and 120 minutes.");
-      return;
-    }
-    if (!easy && !medium && !hard) {
-      setStartLoading(false);
-      setGoodBanner(false);
-      setMessage("Please select at least one difficulty level.");
-      return;
-    }
-    if (localPartyCode) {
-      setMessage(`Loading game...`);
-      socket.emit("start_game", {
-        party_code: localPartyCode,
-        time_limit: timeLimit,
-        rounds: rounds,
-        easy,
-        medium,
-        hard,
-      });
+      setMessage("Error signing in with Google");
     }
   };
 
-  const leaveGame = () => {
-    socket.emit("leave_party", { party_code: localPartyCode, username });
-    localSetUsername("");
-    setLocalPartyCode("");
-    setPartyStatus(PartyStatus.UNJOINED);
-    setPartyCode("");
-    setUsername("");
-    setMessage("");
-    setLeaveLoading(false);
+  const handleSignOut = async () => {
+    try {
+      await auth.signOut();
+      setUser(null);
+    } catch (error) {
+      console.error("Error signing out:", error);
+      setGoodBanner(false);
+      setMessage("Error signing out");
+    }
   };
+
+  const startMatchmaking = () => {
+    if (!user) {
+      setGoodBanner(false);
+      setMessage("Please sign in to start matchmaking");
+      return;
+    }
+    setMatchmakingLoading(true);
+    socket.emit("start_matchmaking", {
+      username: user.displayName,
+      email: user.email,
+      uid: user.uid,
+      time_limit: 15, // Default 15 minutes
+      rounds: 1,
+      easy: true,
+      medium: true,
+      hard: true,
+    });
+  };
+
   return (
-    <div onMouseMove={handleMouseMove} className="page-wrapper">
-      <div
-        className="grid-background"
-        style={
-          {
-            "--mouseX": delayedMousePos.x + "px",
-            "--mouseY": delayedMousePos.y + "px",
-          } as React.CSSProperties
-        }
-      />
-      <div className="content-wrapper">
-        <div className="min-h-screen flex items-center justify-center p-6 no-bg transition-colors relative">
-          {message && (
-            <div
-              className="absolute top-0 left-0 w-full flex justify-center p-4"
-              style={{
-                opacity: showBanner ? 1 : 0,
-                transition: "opacity 500ms ease",
-              }}
-            >
-              <div
-                className={`${
-                  goodBanner
-                    ? "bg-blue-200 text-blue-900"
-                    : "bg-red-200 text-red-900"
-                } p-3 rounded shadow-md relative max-w-xl w-full`}
-              >
-                <button
-                  onClick={() => {
-                    setShowBanner(false);
-                    setMessage("");
-                  }}
-                  className="absolute top-2 right-2 text-blue-900 font-bold hover:text-blue-600 cursor-pointer"
-                >
-                  ✕
-                </button>
-                <p>{message}</p>
-              </div>
-            </div>
-          )}
+    <div
+      className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center"
+      onMouseMove={handleMouseMove}
+    >
+      <div className="fixed inset-0 pointer-events-none">
+        <div
+          className="absolute w-96 h-96 rounded-full bg-blue-200 dark:bg-blue-900 opacity-20 blur-3xl"
+          style={{
+            left: `${delayedMousePos.x - 192}px`,
+            top: `${delayedMousePos.y - 192}px`,
+            transition: "transform 0.1s ease-out",
+          }}
+        />
+      </div>
+      <div className="relative z-10 w-full max-w-4xl mx-auto px-4">
+        {showBanner && (
+          <div
+            className={`fixed top-4 left-1/2 transform -translate-x-1/2 px-4 py-2 rounded-lg shadow-lg transition-all duration-500 ${
+              goodBanner
+                ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100"
+                : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100"
+            }`}
+          >
+            {message}
+          </div>
+        )}
+        <div className="flex justify-center">
           <div className="bg-white dark:bg-gray-900 border-1 border-black dark:border-gray-300 transition duration-500 hover:border-green-400 shadow-lg rounded-xl p-8 w-full max-w-md font-inter">
             <h1 className="text-3xl text-gray-900 dark:text-white mb-6 text-center">
-              Leetduel
+              LeetDuel Online
             </h1>
-            <div className="space-y-4 mb-6">
-              <input
-                type="text"
-                placeholder="Username"
-                value={username}
-                onChange={(e) => localSetUsername(e.target.value)}
-                disabled={partyStatus !== PartyStatus.UNJOINED}
-                className="w-full px-4 py-3 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
-              />
-              <input
-                type="text"
-                placeholder="Party Code"
-                value={localPartyCode}
-                onChange={(e) => setLocalPartyCode(e.target.value)}
-                disabled={partyStatus !== PartyStatus.UNJOINED}
-                className="w-full px-4 py-3 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
-              />
-            </div>
-            <div
-              className="flex flex-col space-y-3 mb-6 transition-all duration-500 overflow-hidden"
-              style={{
-                maxHeight:
-                  partyStatus === PartyStatus.UNJOINED ? "150px" : "0px",
-                opacity: partyStatus === PartyStatus.UNJOINED ? 1 : 0,
-              }}
-            >
-              <Button
-                loading={createLoading}
-                setLoading={setCreateLoading}
-                handleClick={createParty}
-                color={Color("green")}
-              >
-                Create Party
-              </Button>
-              <Button
-                loading={joinLoading}
-                setLoading={setJoinLoading}
-                handleClick={joinParty}
-                color={Color("blue")}
-              >
-                Join Party
-              </Button>
-            </div>
-            <div
-              className="transition-all space-y-3 duration-500 overflow-hidden mb-6"
-              style={{
-                maxHeight:
-                  partyStatus !== PartyStatus.UNJOINED ? "500px" : "0px",
-                opacity: partyStatus !== PartyStatus.UNJOINED ? 1 : 0,
-              }}
-            >
-              <div className="mt-4 flex items-center space-x-6">
-                <label className="flex items-center space-x-1">
-                  <input
-                    type="checkbox"
-                    className="appearance-none w-5 h-5 border-2 border-gray-300 rounded-sm transition duration-300 checked:bg-blue-400 checked:border-transparent"
-                    checked={easy}
-                    onChange={(e) => setEasy(e.target.checked)}
-                    disabled={partyStatus !== PartyStatus.CREATED}
-                  />
-                  <span className="text-gray-800 dark:text-gray-200">Easy</span>
-                </label>
-                <label className="flex items-center space-x-1">
-                  <input
-                    type="checkbox"
-                    className="appearance-none w-5 h-5 border-2 border-gray-300 rounded-sm transition duration-300 checked:bg-green-400 checked:border-transparent"
-                    checked={medium}
-                    onChange={(e) => setMedium(e.target.checked)}
-                    disabled={partyStatus !== PartyStatus.CREATED}
-                  />
-                  <span className="text-gray-800 dark:text-gray-200">
-                    Medium
-                  </span>
-                </label>
-                <label className="flex items-center space-x-1">
-                  <input
-                    type="checkbox"
-                    className="appearance-none w-5 h-5 border-2 border-gray-300 rounded-sm transition duration-300 checked:bg-red-400 checked:border-transparent"
-                    checked={hard}
-                    onChange={(e) => setHard(e.target.checked)}
-                    disabled={partyStatus !== PartyStatus.CREATED}
-                  />
-                  <span className="text-gray-800 dark:text-gray-200">Hard</span>
-                </label>
+            {!user ? (
+              <div className="space-y-4 mb-6">
+                <Button
+                  handleClick={handleGoogleSignIn}
+                  color={Color("blue")}
+                  loading={false}
+                  setLoading={() => {}}
+                >
+                  Sign in with Google
+                </Button>
               </div>
-              <div className="mt-4">
-                <input
-                  type="number"
-                  placeholder="Time limit (minutes)"
-                  value={timeLimit}
-                  onChange={(e) => setTimeLimit(e.target.value)}
-                  disabled={partyStatus !== PartyStatus.CREATED}
-                  className="w-full px-4 py-3 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition mb-3"
-                />
+            ) : (
+              <div className="space-y-4 mb-6">
+                <div className="flex items-center space-x-4 mb-4">
+                  {user.photoURL && (
+                    <img
+                      src={user.photoURL}
+                      alt="Profile"
+                      className="w-10 h-10 rounded-full"
+                    />
+                  )}
+                  <div>
+                    <p className="text-gray-900 dark:text-white font-medium">
+                      {user.displayName}
+                    </p>
+                    <p className="text-gray-600 dark:text-gray-400 text-sm">
+                      {user.email}
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  loading={matchmakingLoading}
+                  setLoading={setMatchmakingLoading}
+                  handleClick={startMatchmaking}
+                  color={Color("blue")}
+                >
+                  Find Match
+                </Button>
+                <Button
+                  handleClick={handleSignOut}
+                  color={Color("red")}
+                  loading={false}
+                  setLoading={() => {}}
+                >
+                  Sign Out
+                </Button>
+                <a
+                  href="/ladder"
+                  className="block w-full text-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                >
+                  View Leaderboard
+                </a>
               </div>
-              <div className="mt-4">
-                <input
-                  type="number"
-                  placeholder="Number of rounds"
-                  value={rounds}
-                  onChange={(e) => setRounds(e.target.value)}
-                  disabled={partyStatus !== PartyStatus.CREATED}
-                  className="w-full px-4 py-3 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition mb-3"
-                />
-              </div>
-              <Button
-                loading={startLoading}
-                setLoading={setStartLoading}
-                handleClick={startGame}
-                color={Color("blue")}
-              >
-                Start Game
-              </Button>
-              <Button
-                loading={leaveLoading}
-                setLoading={setLeaveLoading}
-                handleClick={leaveGame}
-                color={Color("red")}
-              >
-                Leave Party
-              </Button>
-              <div className="mt-4">
-                <h2 className="text-xl font-bold mb-2">Members</h2>
-                <ul className="list-inside">
-                  {members.map((member, idx) => (
-                    <li key={idx} className="text-lg">
-                      {member}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
-      <a
-        href="https://github.com/jeffreykim/leetduel"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="github-logo"
-      >
-        <img src="/githublogo.png" alt="GitHub Logo" />
-      </a>
-      <style jsx global>{`
-        .grid-background {
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100vw;
-          height: 100vh;
-          pointer-events: none;
-          z-index: 0;
-        }
-        .grid-background::before {
-          content: "";
-          position: absolute;
-          inset: 0;
-          background-image: repeating-linear-gradient(
-              0deg,
-              rgba(200, 200, 200, 0.15) 0,
-              rgba(200, 200, 200, 0.15) 1px,
-              transparent 1px,
-              transparent 20px
-            ),
-            repeating-linear-gradient(
-              90deg,
-              rgba(200, 200, 200, 0.15) 0,
-              rgba(200, 200, 200, 0.15) 1px,
-              transparent 1px,
-              transparent 20px
-            );
-          pointer-events: none;
-        }
-        .grid-background::after {
-          content: "";
-          position: absolute;
-          inset: 0;
-          background-image: repeating-linear-gradient(
-              0deg,
-              rgba(200, 200, 200, 0.15) 0,
-              rgba(200, 200, 200, 0.15) 1px,
-              transparent 1px,
-              transparent 20px
-            ),
-            repeating-linear-gradient(
-              90deg,
-              rgba(200, 200, 200, 0.15) 0,
-              rgba(200, 200, 200, 0.15) 1px,
-              transparent 1px,
-              transparent 20px
-            );
-          filter: brightness(1);
-          -webkit-mask-image: radial-gradient(
-            circle at var(--mouseX) var(--mouseY),
-            white,
-            transparent 1000px
-          );
-          mask-image: radial-gradient(
-            circle at var(--mouseX) var(--mouseY),
-            white,
-            transparent 1000px
-          );
-          pointer-events: none;
-        }
-        .page-wrapper {
-          position: relative;
-          overflow: hidden;
-        }
-        .content-wrapper {
-          position: relative;
-          z-index: 1;
-          background-color: transparent;
-        }
-        .no-bg {
-          background: transparent !important;
-        }
-        /* New styles for GitHub logo */
-        .github-logo {
-          position: fixed;
-          bottom: 10px;
-          left: 10px;
-          z-index: 2;
-          transition: transform 0.3s, opacity 0.3s;
-        }
-        .github-logo img {
-          width: 40px;
-          height: 40px;
-        }
-        .github-logo:hover {
-          transform: scale(1.1);
-          opacity: 0.8;
-        }
-      `}</style>
     </div>
   );
 }

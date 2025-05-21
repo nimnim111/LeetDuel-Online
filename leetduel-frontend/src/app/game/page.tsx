@@ -313,12 +313,6 @@ function GameContent() {
     router.push(`/`);
   };
 
-  const skipProblem = () => {
-    setSkipButtonDisabled(true);
-    socket.emit("skip_problem", { party_code: party });
-    console.log("Skip problem clicked");
-  };
-
   const startNextRound = () => {
     socket.emit("start_next_round", { party_code: party });
   };
@@ -532,7 +526,7 @@ function GameContent() {
           </div>
         </div>
         <div className="w-full h-[75vh] mx-auto mr-[16.66%]">
-          <h1 className="text-4xl mb-8 text-center">Leetduel</h1>
+          <h1 className="text-4xl mb-8 text-center">LeetDuel Online</h1>
           <div className="flex flex-col md:flex-row h-full gap-2 w-full">
             <div className="relative md:w-1/2 bg-white dark:bg-gray-800 shadow rounded-lg p-6 border-1 border-gray-500">
               <h2 className="text-2xl font-semibold mb-4">{problem?.name}</h2>
@@ -581,6 +575,31 @@ function GameContent() {
                     inlineSuggest: { enabled: false },
                     folding: false,
                     readOnly: screen !== username || waiting,
+                    scrollBeyondLastLine: false,
+                    automaticLayout: true,
+                    wordWrap: "on",
+                    lineNumbers: "on",
+                    renderWhitespace: "none",
+                    scrollbar: {
+                      vertical: "visible",
+                      horizontal: "visible",
+                      useShadows: false,
+                      verticalScrollbarSize: 10,
+                      horizontalScrollbarSize: 10
+                    }
+                  }}
+                  onMount={(editor) => {
+                    editor.focus();
+                  }}
+                  beforeMount={(monaco) => {
+                    monaco.editor.defineTheme('custom-dark', {
+                      base: 'vs-dark',
+                      inherit: true,
+                      rules: [],
+                      colors: {
+                        'editor.background': '#1E1E1E',
+                      }
+                    });
                   }}
                 />
               </div>
@@ -642,15 +661,14 @@ function GameContent() {
             Leave Game
           </button>
           <button
-            onClick={waiting ? continueToNext : skipProblem}
-            disabled={skipButtonDisabled}
+            onClick={waiting ? continueToNext : undefined}
             className={`${
               waiting
                 ? "bg-green-600 transition hover:bg-green-700"
-                : "bg-gray-600 transition hover:bg-gray-700"
+                : "hidden"
             } text-white py-2 px-4 rounded`}
           >
-            {waiting ? "Continue" : "Skip Problem"}
+            Continue
           </button>
         </div>
         {showHelp && (

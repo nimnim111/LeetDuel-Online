@@ -1,4 +1,4 @@
-# LeetDuel
+# LeetDuel Online
 
 ## Database Setup
 

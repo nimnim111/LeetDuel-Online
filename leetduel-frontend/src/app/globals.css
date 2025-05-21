@@ -22,3 +22,16 @@ body {
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.leaderboard-outer {
+  transition: border-color 0.2s;
+}
+.leaderboard-outer:hover {
+  border-color: #22c55e !important; /* Tailwind green-500 */
+}
+
+.home-btn:hover {
+  background-color: #22c55e !important; /* Tailwind green-500 */
+  border-color: #22c55e !important;
+  color: #fff !important;
+}

@@ -182,3 +182,17 @@ class SubmissionData:
         self.passed_test_cases = passed_test_cases
         self.failed_test = failed_test
         self.stdout = stdout
+
+
+@dataclass
+class LadderEntry:
+    rank: int
+    username: str
+    total_score: float
+    games_played: int
+    games_won: int
+
+
+@dataclass
+class LadderResponse:
+    entries: List[LadderEntry]

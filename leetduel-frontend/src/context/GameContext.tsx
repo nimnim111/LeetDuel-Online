@@ -1,13 +1,29 @@
 "use client";
-import React, { createContext, useContext, useState, ReactNode } from "react";
-import { Problem, GameContextType } from "../types";
+import React, { createContext, useContext, useState } from "react";
 
-const GameContext = createContext<GameContextType | undefined>(undefined);
+interface GameContextType {
+  problem: any;
+  setProblem: (problem: any) => void;
+  partyCode: string;
+  setPartyCode: (code: string) => void;
+  username: string;
+  setUsername: (name: string) => void;
+}
 
-export function GameProvider({ children }: { children: ReactNode }) {
-  const [problem, setProblem] = useState<Problem>(null);
+const GameContext = createContext<GameContextType>({
+  problem: null,
+  setProblem: () => {},
+  partyCode: "",
+  setPartyCode: () => {},
+  username: "",
+  setUsername: () => {},
+});
+
+export function GameProvider({ children }: { children: React.ReactNode }) {
+  const [problem, setProblem] = useState<any>(null);
   const [partyCode, setPartyCode] = useState("");
   const [username, setUsername] = useState("");
+
   return (
     <GameContext.Provider
       value={{
@@ -25,9 +41,5 @@ export function GameProvider({ children }: { children: ReactNode }) {
 }
 
 export function useGame() {
-  const context = useContext(GameContext);
-  if (!context) {
-    throw new Error("useGame must be used within a GameProvider");
-  }
-  return context;
+  return useContext(GameContext);
 }

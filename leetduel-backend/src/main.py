@@ -3,34 +3,78 @@ import string
 import time
 import math
 from dataclasses import asdict
-from typing import List
+from typing import List, Dict, Optional
 
 import socketio
 import asyncio
 import uvicorn
 
 from ratelimit import limits, RateLimitException
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 
 from .submit import Problem
-from .database import SessionLocal
-from .crud import get_problem, increment_reports
+from .database import SessionLocal, UserRank
+from .crud import get_problem, increment_reports, create_or_update_user_rank, get_user_rank, get_all_user_ranks
 from .config import port
 
 from src.routes.problems import router as problems_router
+from src.routes.ladder import router as ladder_router
 from src.dataclass import *
 
+import sqlite3
+import json
+import threading
+import requests
+from datetime import datetime
+import uuid
+
+from sqlalchemy.orm import Session
+from sqlalchemy import desc
 
 
 app = FastAPI()
 app.include_router(problems_router)
+app.include_router(ladder_router)
+
+# Enable CORS with more specific configuration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"]
+)
+
+# Database setup
+def init_db():
+    conn = sqlite3.connect('leetduel.db')
+    c = conn.cursor()
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id TEXT PRIMARY KEY,
+            username TEXT UNIQUE NOT NULL,
+            total_score INTEGER DEFAULT 0,
+            games_played INTEGER DEFAULT 0,
+            games_won INTEGER DEFAULT 0
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+init_db()
 
 sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*")
 socket_app = socketio.ASGIApp(sio, app)
 
 parties: dict[str, Party] = {}
 language_id = 100
+matchmaking_queue = {}  # Dictionary to store players in matchmaking queue
+matchmaking_lock = asyncio.Lock()  # Lock for thread-safe operations on matchmaking queue
+active_users = {}  # Dictionary to track active users by uid
+user_lock = asyncio.Lock()  # Lock for thread-safe operations on active users
 
 
 # <----------------- Helper functions ----------------->
@@ -120,21 +164,77 @@ async def start_new_round(party_code: str) -> None:
 
 
 async def finish_round(party_code: str) -> None:
+    if party_code not in parties:
+        return
+    
     party = parties[party_code]
     party.status = "waiting"
-    for player in party.players.values():
-        player.total_score += player.current_score
-    leaderboard_players = sorted(list(party.players.values()), key=lambda p: p.total_score, reverse=True)
-
-    leaderboard = [Score(p.username, p.total_score) for p in leaderboard_players]
-    leaderboard_data = LeaderboardData(leaderboard)
-
-    if party.current_round < party.total_rounds:
-        await sio.emit("round_leaderboard", asdict(leaderboard_data), room=party_code)
-        party.current_round += 1
-
-    else:
+    # Find if any player has passed (solved the problem)
+    solver_sid = None
+    for sid, player in party.players.items():
+        if player.passed:
+            solver_sid = sid
+            break
+    
+    if solver_sid:
+        # Only the solver gets their score, others get 0
+        for sid, player in party.players.items():
+            if sid == solver_sid:
+                player.total_score += player.current_score
+            else:
+                player.current_score = 0
+                player.total_score = 0
+        leaderboard_players = sorted(list(party.players.values()), key=lambda p: p.total_score, reverse=True)
+        leaderboard = [Score(p.username, p.total_score) for p in leaderboard_players]
+        leaderboard_data = LeaderboardData(leaderboard)
         await sio.emit("final_leaderboard", asdict(leaderboard_data), room=party_code)
+        # Update leaderboard in DB and clean up
+        db = SessionLocal()
+        try:
+            for player_sid, player in party.players.items():
+                for uid, user_data in active_users.items():
+                    if user_data["sid"] == player_sid:
+                        create_or_update_user_rank(
+                            db=db,
+                            uid=uid,
+                            username=user_data["username"],
+                            email=user_data["email"],
+                            score_delta=player.total_score,
+                            won=player.passed
+                        )
+                        break
+        finally:
+            db.close()
+        # Clean up users after game ends
+        async with user_lock:
+            for player_sid in party.players:
+                for uid, user_data in list(active_users.items()):
+                    if user_data["sid"] == player_sid:
+                        remove_active_user(uid)
+                        break
+        # Remove the party after a short delay
+        await asyncio.sleep(5)
+        if party_code in parties:
+            del parties[party_code]
+    else:
+        # If no one solved, just show leaderboard as before
+        for player in party.players.values():
+            player.total_score += player.current_score
+        leaderboard_players = sorted(list(party.players.values()), key=lambda p: p.total_score, reverse=True)
+        leaderboard = [Score(p.username, p.total_score) for p in leaderboard_players]
+        leaderboard_data = LeaderboardData(leaderboard)
+        await sio.emit("final_leaderboard", asdict(leaderboard_data), room=party_code)
+        # Clean up users after game ends
+        async with user_lock:
+            for player_sid in party.players:
+                for uid, user_data in list(active_users.items()):
+                    if user_data["sid"] == player_sid:
+                        remove_active_user(uid)
+                        break
+        await asyncio.sleep(5)
+        if party_code in parties:
+            del parties[party_code]
+
 
 # <----------------- Socket events ----------------->
 
@@ -222,7 +322,7 @@ async def start_game(sid: str, data: dict, difficulties: List[bool] = []) -> Non
     party_code = data["party_code"]
     difficulty = difficulties or [data["easy"], data["medium"], data["hard"]]
     time_limit = int(data["time_limit"] or "15")
-    rounds = int(data["rounds"] or "1")
+    rounds = 1  # Force 1 round
 
     if party_code not in parties:
         e = TextData("Party not found")
@@ -237,7 +337,7 @@ async def start_game(sid: str, data: dict, difficulties: List[bool] = []) -> Non
         return
 
     try:
-        party.total_rounds = rounds
+        party.total_rounds = 1  # Force 1 round
         party.current_round = 1
         party.finish_count = 0
 
@@ -261,13 +361,13 @@ async def start_game(sid: str, data: dict, difficulties: List[bool] = []) -> Non
             player.total_score = 0
             player.finish_order = None
 
-        game_data = GameData(problem, party_code, time_limit,1, rounds)
+        game_data = GameData(problem, party_code, time_limit, 1, 1)  # Force 1 round
         await sio.emit("game_started", asdict(game_data), room=party_code)
 
         time_data = TimeData(time_limit * 60)
         await sio.emit("update_time", asdict(time_data), to=sid)
 
-        round_info = RoundInfo(1, rounds)
+        round_info = RoundInfo(1, 1)  # Force 1 round
         await sio.emit("update_round_info", asdict(round_info), to=sid)
         asyncio.create_task(game_timeout(party_code, time_limit, problem.name))
 
@@ -324,6 +424,8 @@ async def submit_code(sid: str, data: dict) -> None:
         if new_score > player.current_score:
             player.current_score = new_score
         await sio.emit("passed_all", to=sid)
+        # End the game immediately when someone solves the problem
+        await finish_round(party_code)
 
     client_message = TextData(message_to_client)
     await sio.emit("code_submitted", asdict(client_message), to=sid)
@@ -370,45 +472,101 @@ async def chat_message(sid: str, data: dict) -> None:
     await sio.emit("message_received", asdict(message_data), room=party_code)
 
 
+async def end_game(party_code: str, message: str = "Game ended due to player leaving.", remaining_sid: str = None) -> None:
+    """End the game and clean up the party"""
+    if party_code not in parties:
+        return
+        
+    party = parties[party_code]
+    
+    # Send final scores if game was in progress
+    if party.status == "in_progress":
+        # If there's a remaining player (someone left), give them 20 points
+        if remaining_sid and remaining_sid in party.players:
+            party.players[remaining_sid].total_score = 20
+            for sid, player in party.players.items():
+                if sid != remaining_sid:
+                    player.total_score = 0
+
+        # Update ladder rankings for all players
+        db = SessionLocal()
+        try:
+            for player_sid, player in party.players.items():
+                for uid, user_data in active_users.items():
+                    if user_data["sid"] == player_sid:
+                        create_or_update_user_rank(
+                            db=db,
+                            uid=uid,
+                            username=user_data["username"],
+                            email=user_data["email"],
+                            score_delta=player.total_score,
+                            won=(player_sid == remaining_sid) if remaining_sid else player.passed
+                        )
+                        break
+        finally:
+            db.close()
+        
+        leaderboard_players = sorted(list(party.players.values()), key=lambda p: p.total_score, reverse=True)
+        leaderboard = [Score(p.username, p.total_score) for p in leaderboard_players]
+        leaderboard_data = LeaderboardData(leaderboard)
+        await sio.emit("final_leaderboard", asdict(leaderboard_data), room=party_code)
+    
+    # Notify all players
+    await sio.emit("message_received", asdict(MessageData(message, True, "")), room=party_code)
+    
+    # Clean up users
+    async with user_lock:
+        for player_sid in party.players:
+            for uid, user_data in list(active_users.items()):
+                if user_data["sid"] == player_sid:
+                    remove_active_user(uid)
+                    break
+    
+    # Remove party after a short delay
+    await asyncio.sleep(3)
+    if party_code in parties:
+        del parties[party_code]
+
 @sio.event
 async def leave_party(sid: str, data: dict) -> None:
     print(f"leave_party event received from {sid}: {data}")
     party_code = data["party_code"]
     username = data["username"]
+    
+    # Remove user from active users
+    async with user_lock:
+        # Find and remove the user by their sid
+        for uid, user_data in list(active_users.items()):
+            if user_data["sid"] == sid:
+                remove_active_user(uid)
+                break
+    
     await sio.emit("leave_party", to=sid)
 
     if party_code not in parties:
         return
     
     party = parties[party_code]
-    if party.status == "waiting":
-        if party.host == sid:
-            await sio.leave_room(sid, party_code)
-            del parties[party_code]
-        else:
-            del party.players[sid]
-            player_data = PlayerData(username, party_code)
-            await sio.emit("player_left", asdict(player_data), room=party_code)
-            await sio.leave_room(sid, party_code)
-        
+    
+    # If game is in progress, end it
+    if party.status == "in_progress":
+        # Find the remaining player's sid
+        remaining_sid = next((player_sid for player_sid in party.players if player_sid != sid), None)
+        await end_game(party_code, f"{username} left the game. Game ended.", remaining_sid)
         return
 
     if party.host == sid:
-        message = MessageData("Host left the party.", True, "")
-        await sio.emit("message_received", asdict(message), room=party_code)
-        await asyncio.sleep(3)
-        await sio.emit("leave_party", room=party_code)
-        for player_sid in party.players:
-            await sio.leave_room(player_sid, party_code)
-
-        del parties[party_code]
-
+        # If host leaves, end the game
+        remaining_sid = next((player_sid for player_sid in party.players if player_sid != sid), None)
+        await end_game(party_code, "Host left the party. Game ended.", remaining_sid)
     else:
         del party.players[sid]
         message = MessageData(f"{username} has left the party.", True, "")
         await sio.emit("message_received", asdict(message), room=party_code)
         await sio.leave_room(sid, party_code)
-        
+        # Check if party is now empty
+        await cleanup_empty_party(party_code)
+
 
 # @sio.event
 # async def restart_game(sid: str, data: dict) -> None:
@@ -446,106 +604,42 @@ async def leave_party(sid: str, data: dict) -> None:
 @sio.event
 async def disconnect(sid: str) -> None:
     print(f"disconnect event received from {sid}")
+    # Remove from matchmaking queue if present
+    async with matchmaking_lock:
+        if sid in matchmaking_queue:
+            uid = matchmaking_queue[sid]["uid"]
+            del matchmaking_queue[sid]
+            async with user_lock:
+                remove_active_user(uid)
+    
+    # Handle existing party disconnection logic
     for party_code, party in list(parties.items()):
-        if party.host == sid or not party.players:
-            await sio.leave_room(sid, party_code)
-            message = MessageData("Party deleted due to disconnect.", True, "")
-            await sio.emit("message_received", asdict(message), room=party_code)
-
-            await asyncio.sleep(2)
-            await sio.emit("leave_party", room=party_code)
-            if party_code in parties:
-                del parties[party_code]
-
         if sid not in party.players:
-            return
+            continue
 
         player = party.players[sid]
-        message = MessageData(f"{player.username} has left the party.", True, "")
+        async with user_lock:
+            # Find and remove the user by their sid
+            for uid, user_data in list(active_users.items()):
+                if user_data["sid"] == sid:
+                    remove_active_user(uid)
+                    break
+            
+        # If game is in progress, end it
+        if party.status == "in_progress":
+            # Find the remaining player's sid
+            remaining_sid = next((player_sid for player_sid in party.players if player_sid != sid), None)
+            await end_game(party_code, f"{player.username} disconnected. Game ended.", remaining_sid)
+            continue
+
+        message = MessageData(f"{player.username} has disconnected.", True, "")
         await sio.emit("message_received", asdict(message), room=party_code)
         await sio.emit("player_left", {"username": player.username}, room=party_code)
 
         del party.players[sid]
         await sio.leave_room(sid, party_code)
-
-
-@sio.event
-async def skip_problem(sid: str, data: dict) -> None:
-    party_code = data["party_code"]
-    print(f"skip problem event received from {sid}, party code: {party_code}")
-    if party_code not in parties:
-        return
-    
-    party = parties[party_code]
-
-    if party.host != sid:
-        return
-    
-    message = MessageData("Problem is being skipped...", True, "")
-    await sio.emit("message_received", asdict(message), room=party_code)
-    await asyncio.sleep(1)
-
-    for player in party.players.values():
-        player.passed = False
-        player.finish_order = None
-        player.current_score = 0
-
-    await start_new_round(party_code)
-
-
-@sio.event
-async def retrieve_time(sid: str, data: dict) -> None:
-    party_code = data["party_code"]
-    if party_code not in parties:
-        return
-    
-    party = parties[party_code]
-    time_left = party.end_time - time.time()
-    print(f"retrieve_time event received from {sid}, time left: {time_left}")
-    time_data = TimeData(time_left)
-    await sio.emit("update_time", asdict(time_data), to=sid)
-
-
-@sio.event
-async def retrieve_round_info(sid: str, data: dict) -> None:
-    print(f"retrieve_round_info event received from {sid}")
-    party_code = data["party_code"]
-    if party_code not in parties:
-        return
-
-    party = parties[party_code]
-    round_info = RoundInfo(party.current_round, party.total_rounds)
-    await sio.emit("update_round_info", asdict(round_info), to=sid)
-
-
-@sio.event
-async def code_update(sid: str, data: dict) -> None:
-    party_code = data["party_code"]
-    new_code = data["code"]
-
-    if party_code not in parties:
-        return
-    
-    party = parties[party_code]
-    party.players[sid].code = new_code
-    code_data = TextData(new_code)
-
-    await sio.emit("updated_code", asdict(code_data), room=f"{sid}:spectate")
-
-
-@sio.event
-async def console_update(sid: str, data: dict) -> None:
-    party_code = data["party_code"]
-    new_text = data["console_output"]
-
-    if party_code not in parties:
-        return
-    
-    party = parties[party_code]
-    party.players[sid].console_output = new_text
-    text_data = TextData(new_text)
-
-    await sio.emit("updated_console", asdict(text_data), room=f"{sid}:spectate")
+        # Check if party is now empty
+        await cleanup_empty_party(party_code)
 
 
 @sio.event
@@ -615,11 +709,206 @@ async def report_problem(sid: str, data: dict) -> None:
         db.close()
 
 
+def is_user_active(uid: str) -> bool:
+    """Check if a user is currently active"""
+    return uid in active_users
+
+def add_active_user(uid: str, sid: str, username: str, email: str) -> None:
+    """Add a user to the active set"""
+    print(f"Adding user to active set: {username} ({uid})")
+    active_users[uid] = {
+        "sid": sid,
+        "username": username,
+        "email": email
+    }
+
+def remove_active_user(uid: str) -> None:
+    """Remove a user from the active set"""
+    if uid in active_users:
+        print(f"Removing user from active set: {active_users[uid]['username']} ({uid})")
+        del active_users[uid]
+
+def create_user_if_not_exists(uid: str, username: str) -> None:
+    """Create a user record if it doesn't exist"""
+    db = SessionLocal()
+    try:
+        create_or_update_user_rank(
+            db=db,
+            uid=uid,
+            username=username,
+            email="",  # Email will be updated when user starts matchmaking
+            score_delta=0,
+            won=False
+        )
+    finally:
+        db.close()
+
+@sio.event
+async def start_matchmaking(sid: str, data: dict) -> None:
+    print(f"start_matchmaking event received from {sid}: {data}")
+    username = data["username"]
+    email = data["email"]
+    uid = data["uid"]
+    difficulties = [True, True, True]  # Fixed difficulties - all enabled
+    
+    # Create user record if it doesn't exist
+    create_user_if_not_exists(uid, username)
+    
+    # Check if user is already active
+    async with user_lock:
+        if is_user_active(uid):
+            error = TextData("You are already in a game or searching for a match.")
+            await sio.emit("error", asdict(error), to=sid)
+            return
+        add_active_user(uid, sid, username, email)
+    
+    try:
+        # Create a matchmaking entry
+        matchmaking_entry = {
+            "username": username,
+            "email": email,
+            "uid": uid,
+            "time_limit": 15,  # Fixed 15 minutes
+            "rounds": 1,  # Fixed 1 round
+            "difficulties": difficulties,
+            "timestamp": time.time()
+        }
+        
+        async with matchmaking_lock:
+            # Add player to matchmaking queue
+            matchmaking_queue[sid] = matchmaking_entry
+            
+            # Check if there are at least 2 players in queue
+            if len(matchmaking_queue) >= 2:
+                # Get the first two players
+                players = list(matchmaking_queue.items())[:2]
+                player1_sid, player1_data = players[0]
+                player2_sid, player2_data = players[1]
+                
+                # Remove these players from queue
+                del matchmaking_queue[player1_sid]
+                del matchmaking_queue[player2_sid]
+                
+                # Create a new party
+                party_code = generate_party_code()
+                player1 = Player(player1_data["username"], False, "", "", 0, 0, None)
+                player2 = Player(player2_data["username"], False, "", "", 0, 0, None)
+                
+                party = Party(
+                    player1_sid,
+                    {player1_sid: player1, player2_sid: player2},
+                    None,
+                    "waiting",
+                    15,  # Fixed 15 minutes
+                    1,  # Fixed 1 round
+                    0,
+                    difficulties,  # Fixed difficulties
+                    0,
+                    0
+                )
+                parties[party_code] = party
+                
+                # Add both players to the party room
+                await sio.enter_room(player1_sid, party_code)
+                await sio.enter_room(player2_sid, party_code)
+                
+                # Notify both players with correct player list
+                player_usernames = [player1_data["username"], player2_data["username"]]
+                player_data1 = PlayerData(player1_data["username"], party_code, player_usernames)
+                player_data2 = PlayerData(player2_data["username"], party_code, player_usernames)
+                
+                await sio.emit("player_joined", asdict(player_data1), to=player1_sid)
+                await sio.emit("player_joined", asdict(player_data2), to=player2_sid)
+                
+                # Start the game
+                await start_game(player1_sid, {
+                    "party_code": party_code,
+                    "time_limit": 15,  # Fixed 15 minutes
+                    "rounds": 1,  # Fixed 1 round
+                    "easy": True,
+                    "medium": True,
+                    "hard": True
+                }, difficulties)
+    except Exception as e:
+        # If anything goes wrong, remove the user from active set
+        async with user_lock:
+            remove_active_user(uid)
+        raise e
+
+
 @app.get("/")
 async def read_root():
     return JSONResponse({"message": "Server is running"})
 
 
+async def cleanup_empty_party(party_code: str) -> None:
+    """Clean up a party and its users if it's empty"""
+    if party_code in parties and not parties[party_code].players:
+        print(f"Cleaning up empty party: {party_code}")
+        del parties[party_code]
+
+
+# Ladder endpoints
+@app.get("/ladder")
+async def get_ladder():
+    try:
+        db = SessionLocal()
+        try:
+            # Get all users ordered by total score
+            users = get_all_user_ranks(db)
+            
+            entries = []
+            for i, user in enumerate(users, 1):
+                entries.append({
+                    "rank": i,
+                    "username": user.username,
+                    "total_score": user.total_score,
+                    "games_played": user.games_played,
+                    "games_won": user.games_won
+                })
+            
+            return {"entries": entries}
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"Error in get_ladder: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+@app.get("/ladder/user/{user_id}")
+async def get_user_ladder_info(user_id: str):
+    try:
+        db = SessionLocal()
+        try:
+            # Get user info
+            user = get_user_rank(db, user_id)
+            
+            if not user:
+                # If user doesn't exist, create them
+                if user_id in active_users:
+                    username = active_users[user_id]["username"]
+                    create_user_if_not_exists(user_id, username)
+                    # Fetch the newly created user
+                    user = get_user_rank(db, user_id)
+                else:
+                    raise HTTPException(status_code=404, detail="User not found")
+            
+            # Get user's rank
+            rank = db.query(UserRank).filter(UserRank.total_score > user.total_score).count() + 1
+            
+            return {
+                "rank": rank,
+                "username": user.username,
+                "total_score": user.total_score,
+                "games_played": user.games_played,
+                "games_won": user.games_won
+            }
+        finally:
+            db.close()
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error in get_user_ladder_info: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 if __name__ == "__main__":
     uvicorn.run("src.main:socket_app", host="0.0.0.0", port=int(port))

@@ -7,8 +7,8 @@ import "@fortawesome/fontawesome-svg-core/styles.css";
 config.autoAddCss = false;
 
 export const metadata: Metadata = {
-  title: "LeetDuel",
-  description: "Code duel against your friends!",
+  title: "LeetDuel Online",
+  description: "LeetDuel Online: Code duel against your friends!",
   icons: { icon: "/favicon.ico" },
 };
 
