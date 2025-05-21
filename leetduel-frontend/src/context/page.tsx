@@ -10,8 +10,8 @@ import {
   PlayerData,
   LeaderboardData,
   RoundData,
-} from "../../types";
-import socket from "../../socket";
+} from "@/types";
+import socket from "@/socket";
 import Editor from "@monaco-editor/react";
 import parse from "html-react-parser";
 
