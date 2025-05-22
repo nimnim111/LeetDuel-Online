@@ -9,7 +9,7 @@ interface LadderEntry {
   total_score: number;
 }
 
-const BACKEND_URL = "http://localhost:8000";
+const BACKEND_URL = NEXT_PUBLIC_SERVER_URL;
 
 export default function LadderPage() {
   const router = useRouter();
