@@ -8,7 +8,7 @@ interface LadderEntry {
   username: string;
   total_score: number;
 }
-const BACKEND_URL = process.env.NEXT_PUBLIC_SERVER_URL;
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_SERVER_URL;
 
 
 
