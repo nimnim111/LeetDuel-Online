@@ -9,7 +9,7 @@ interface LadderEntry {
   total_score: number;
 }
 
-const BACKEND_URL = https://leetduel-online.onrender.com/;
+const BACKEND_URL = "https://leetduel-online.onrender.com/";
 
 export default function LadderPage() {
   const router = useRouter();
