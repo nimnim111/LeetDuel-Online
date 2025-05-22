@@ -9,7 +9,7 @@ interface LadderEntry {
   total_score: number;
 }
 const BACKEND_URL = process.env.NEXT_PUBLIC_SERVER_URL;
-console.log("API BASE URL:", BACKEND_URL);
+
 
 
 export default function LadderPage() {
@@ -43,6 +43,7 @@ export default function LadderPage() {
   useEffect(() => {
     const fetchLadderData = async () => {
       try {
+        console.log("API BASE URL:", BACKEND_URL);
         const response = await fetch(`${BACKEND_URL}/ladder`);
         if (!response.ok) {
           throw new Error(`Failed to load leaderboard. Please try again later.`);
