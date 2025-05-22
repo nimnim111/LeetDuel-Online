@@ -8,8 +8,8 @@ interface LadderEntry {
   username: string;
   total_score: number;
 }
-console.log("API BASE URL:", BACKEND_URL);
 const BACKEND_URL = process.env.NEXT_PUBLIC_SERVER_URL;
+console.log("API BASE URL:", BACKEND_URL);
 
 
 export default function LadderPage() {
