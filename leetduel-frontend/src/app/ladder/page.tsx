@@ -8,8 +8,7 @@ interface LadderEntry {
   username: string;
   total_score: number;
 }
-const BACKEND_URL = "https://leetduel-online.onrender.com";
-
+const BACKEND_URL = process.env.NEXT_PUBLIC_SERVER_URL;
 
 
 export default function LadderPage() {
