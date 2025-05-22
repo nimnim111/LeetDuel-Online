@@ -43,7 +43,7 @@ export default function LadderPage() {
     const fetchLadderData = async () => {
       try {
         console.log("API BASE URL:", BACKEND_URL);
-        const response = await fetch(`${BACKEND_URL}/ladder`);
+        const response = await fetch(`${BACKEND_URL}ladder`);
         if (!response.ok) {
           throw new Error(`Failed to load leaderboard. Please try again later.`);
         }
